@@ -273,7 +273,13 @@ export function createMapView(container) {
 
   const padding = () => {
     const mobile = window.matchMedia('(max-width: 720px)').matches;
-    return mobile ? { top: 90, bottom: window.innerHeight * 0.5, left: 30, right: 30 } : { top: 80, bottom: 60, left: 440, right: 80 };
+    if (!mobile) return { top: 80, bottom: 60, left: 440, right: 80 };
+    // Handy: unten so viel Platz lassen, wie das Bottom-Sheet gerade einnimmt
+    const panel = document.getElementById('panel');
+    const sheetH = panel && !panel.hidden ? Number(panel.dataset.h) || window.innerHeight * 0.5 : 0;
+    const top = 90;
+    const bottom = Math.min(sheetH + 24, window.innerHeight - top - 120);
+    return { top, bottom, left: 30, right: 30 };
   };
 
   let hoverRaf = 0;
@@ -392,6 +398,13 @@ export function createMapView(container) {
       renderRoutes();
       const r = state.routes.find((x) => x.id === id);
       if (r && fit) map.fitBounds(boundsOf(r.coords), { padding: padding(), duration: 900, pitch: map.getPitch() });
+    },
+
+    /** Gewählte Route (oder alle) neu in den freien Kartenbereich einpassen */
+    refit() {
+      const r = state.routes.find((x) => x.id === state.selected);
+      const coords = r ? r.coords : state.routes.flatMap((x) => x.coords);
+      if (coords.length) map.fitBounds(boundsOf(coords), { padding: padding(), duration: 600, pitch: map.getPitch() });
     },
 
     fitRoutes() {

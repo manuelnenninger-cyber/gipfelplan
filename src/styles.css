@@ -437,16 +437,22 @@ body:has(#panel[hidden]) .weatherbar { left: 16px; width: min(760px, calc(100% -
   .search { left: 12px; right: 12px; top: max(12px, env(safe-area-inset-top)); width: auto; }
   .map-controls { top: calc(max(12px, env(safe-area-inset-top)) + 58px); right: 12px; }
   .ctrl { width: 42px; height: 42px; }
+  /* Bottom-Sheet: Höhe setzt src/ui/sheet.js (eingeklappt, halb, voll) */
   .panel {
     top: auto; left: 0; right: 0; bottom: 0; width: auto;
-    max-height: 62vh; border-radius: 18px 18px 0 0;
+    height: 50vh; max-height: none; border-radius: 18px 18px 0 0;
     padding-bottom: env(safe-area-inset-bottom);
-    transition: max-height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: height 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: sheet-in 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: 0 -1px 0 var(--hair), 0 -8px 30px rgba(20, 30, 60, 0.18);
   }
-  .panel.collapsed { max-height: 132px; }
-  .panel.collapsed .panel-body { overflow: hidden; }
-  .panel-grip { display: block; width: 100%; height: 18px; flex: none; position: relative; }
-  .panel-grip::after { content: ""; position: absolute; left: 50%; top: 7px; width: 38px; height: 5px; border-radius: 3px; background: var(--fill-2); transform: translateX(-50%); }
+  @keyframes sheet-in { from { transform: translateY(40%); opacity: 0.6; } }
+  .panel.sheet-dragging { transition: none; }
+  .panel[data-sheet="peek"] .panel-body { overflow: hidden; }
+  .panel-grip, .panel-head, .segmented { touch-action: none; }
+  .panel-grip { display: block; width: 100%; height: 22px; flex: none; position: relative; cursor: grab; }
+  .panel-grip::after { content: ""; position: absolute; left: 50%; top: 8px; width: 40px; height: 5px; border-radius: 3px; background: var(--text-3); opacity: 0.7; transform: translateX(-50%); }
+  .panel-body { overscroll-behavior: contain; }
   .panel-head { padding-top: 4px; }
   .peak-title h1 { font-size: 24px; }
   body.wx-mode .panel { display: none; }

@@ -76,6 +76,9 @@ function keepInView(map, el) {
   const box = el.closest('.maplibregl-popup')?.getBoundingClientRect();
   if (!box) return;
   const view = map.getContainer().getBoundingClientRect();
+  // Handy: Bottom-Sheet verdeckt den unteren Teil der Karte
+  const sheetH = innerWidth <= 720 ? Number(document.getElementById('panel')?.dataset.h) || 0 : 0;
+  const bottomEdge = sheetH && !document.getElementById('panel').hidden ? Math.min(view.bottom, innerHeight - sheetH) : view.bottom;
   const panel = document.querySelector('.panel:not([hidden])')?.getBoundingClientRect();
   const left = panel && panel.right < view.width * 0.6 && innerWidth > 720 ? panel.right : view.left;
   const m = 12;
@@ -83,7 +86,7 @@ function keepInView(map, el) {
   if (box.left < left + m) dx = box.left - left - m;
   else if (box.right > view.right - 64) dx = box.right - view.right + 64; // Kartenknöpfe rechts
   if (box.top < view.top + m) dy = box.top - view.top - m;
-  else if (box.bottom > view.bottom - 30) dy = box.bottom - view.bottom + 30;
+  else if (box.bottom > bottomEdge - 30) dy = box.bottom - bottomEdge + 30;
   if (dx || dy) map.panBy([dx, dy], { duration: 350 });
 }
 

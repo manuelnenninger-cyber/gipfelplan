@@ -45,6 +45,8 @@ npm test
 
 Die Karte startet in 2D; 3D-Gelände schaltet man bei Bedarf über „3D“ ein.
 
+**Am Handy** ist die Seitenleiste ein Bottom-Sheet mit drei Höhen (eingeklappt, halb, voll), das man wie in Apple Karten zieht und wischt. Tippt man auf die Karte, klappt es ein und die gewählte Route wird in den frei gewordenen Bereich eingepasst; Hochwischen holt die Details zurück.
+
 **Gipfelwetter**: 7-Tage-Prognose von Open-Meteo, Temperaturen auf Gipfelhöhe umgerechnet. Der Gipfelwind kommt von der passenden Druckfläche (z. B. 700 hPa ≈ 3000 m), weil der 10-m-Wind der Modelle in Gipfellage zu niedrig ist. Dazu stündlicher Verlauf, Nullgradgrenze, Gewitterrisiko, Neuschnee, Sonnenzeiten und eine grobe Tourenampel je Tag.
 
 **Wetterkarte** (öffnet sich mit dem Tab „Wetter“): Ebenen Niederschlag (mit Wolken darunter, Regen und Schnee getrennt), Wolken, Gewitter, Wind (Boden oder 3000 m, mit Windpartikeln) und Radar (gemessen, letzte 2 h). Zeitleiste über 5 Tage, stündlich, zwischen den Stunden weich überblendet. Die Wolken sind nach Stockwerken getrennt: tief (weiß, z. B. Nebel oder Gipfel in Wolken), mittel (bläulich), hoch (violetter Schleier). Die Grundkarte wird im Wettermodus abgedunkelt.

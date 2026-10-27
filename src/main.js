@@ -5,6 +5,7 @@ import { setupSearch } from './ui/search.js';
 import { createRoutesPanel } from './ui/routes.js';
 import { createForecastPanel } from './ui/forecast.js';
 import { createWeatherBar } from './ui/weatherbar.js';
+import { createSheet } from './ui/sheet.js';
 import { loadSurroundings, demElevation } from './api/osm.js';
 import { suggestRoutes } from './api/routing.js';
 import { fetchForecast } from './api/weather.js';
@@ -116,7 +117,23 @@ panel.querySelectorAll('.segmented button').forEach((b) => b.addEventListener('c
   // Am Desktop gehören Wetter-Tab und Wetterkarte zusammen
   if (isDesktop()) toggleWeather(b.dataset.tab === 'weather');
 }));
-$('panel-grip').addEventListener('click', () => panel.classList.toggle('collapsed'));
+// Handy: Bottom-Sheet. Karte antippen klappt es ein, damit die Route frei liegt.
+const sheet = createSheet(panel, {
+  onSnap: (state, reason) => { if (state === 'peek' && reason === 'map') view.refit(); },
+});
+view.map.on('click', (e) => {
+  if (!sheet.isMobile || panel.hidden || sheet.state === 'peek') return;
+  const m = view.map;
+  const box = [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]];
+  const routeLayers = ['gp-routes-hit'].filter((l) => m.getLayer(l));
+  if (routeLayers.length && m.queryRenderedFeatures(box, { layers: routeLayers }).length) return;
+  // Hat der Klick etwas anderes ausgelöst (z. B. neuer Gipfel), nicht dazwischenfunken
+  const s0 = sheet.stamp;
+  setTimeout(() => { if (sheet.stamp === s0) sheet.snap('peek', { reason: 'map' }); }, 0);
+});
+view.map.on('dragstart', () => {
+  if (sheet.isMobile && !panel.hidden && sheet.state !== 'peek') sheet.snap('peek', { reason: 'pan' });
+});
 
 function updatePeakHeader(peak) {
   $('peak-name').textContent = peak.name;
@@ -148,9 +165,9 @@ async function selectPeak(input) {
   // Die Karte bleibt in 2D (flüssiger); 3D schaltet man bei Bedarf selbst ein.
 
   panel.hidden = false;
-  panel.classList.remove('collapsed');
   setTab('routes');
   updatePeakHeader(peak);
+  sheet.snap('half');
   search.setValue(peak.name);
   history.replaceState(null, '', `#${peak.lat.toFixed(5)},${peak.lng.toFixed(5)},${encodeURIComponent(peak.name)}`);
 
@@ -218,7 +235,7 @@ view.on('peak', selectPeak);
 view.on('route', (id) => {
   if (panel.hidden) return;
   setTab('routes');
-  panel.classList.remove('collapsed');
+  if (sheet.state === 'peek') sheet.snap('half');
   routesPanel.select(id);
 });
 
