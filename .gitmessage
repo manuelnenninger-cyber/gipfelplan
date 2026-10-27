@@ -1,0 +1,16 @@
+# <typ>(<bereich>): <was sich ändert, Imperativ, max. 72 Zeichen>
+#
+# Warum ist die Änderung nötig? Was war vorher das Problem?
+# Was ist für Nutzer anders? Worauf sollten Reviewer achten?
+#
+# Typen:    feat | fix | perf | refactor | style | docs | test | chore
+# Bereiche: routen | wetter | lawinen | karte | suche | ui | daten | build
+#
+# Beispiel:
+#   feat(lawinen): Warnstufen der Gipfelregion im Wetter-Tab zeigen
+#
+#   Die Lawinenlage war nur über externe Seiten erreichbar. Jetzt steht
+#   oben im Wetter-Tab die Stufe der Region, getrennt nach Höhe, mit
+#   Lawinenproblemen und Link zum vollständigen Bericht.
+#
+#   Refs #12
