@@ -1,0 +1,16 @@
+# Abhängigkeiten und Build
+node_modules/
+dist/
+.vite/
+
+# System und Editor
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Lokale Einstellungen und Geheimnisse
+.env
+.env.*
+!.env.example

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)" />
+    <title>Gipfelplan</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M3 27 13 9l5 8 3-4 8 14z' fill='%232f4fd6'/></svg>" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="map" aria-label="Karte"></div>
+
+    <!-- Suche -->
+    <div class="search" id="search">
+      <label class="search-field">
+        <span class="search-icon" data-icon="search"></span>
+        <input id="search-input" type="search" placeholder="Gipfel suchen" autocomplete="off" spellcheck="false" aria-label="Gipfel suchen" />
+        <button class="search-clear" id="search-clear" aria-label="Suche leeren" hidden data-icon="x"></button>
+      </label>
+      <ul class="search-results" id="search-results" role="listbox" hidden></ul>
+    </div>
+
+    <!-- Seitenleiste / Bottom-Sheet -->
+    <aside class="panel" id="panel" hidden>
+      <button class="panel-grip" id="panel-grip" aria-label="Panel ein- oder ausklappen"></button>
+      <header class="panel-head">
+        <div class="peak-title">
+          <h1 id="peak-name"></h1>
+          <p id="peak-meta"></p>
+        </div>
+        <button class="icon-btn" id="panel-close" aria-label="Schließen" data-icon="x"></button>
+      </header>
+      <div class="segmented" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="routes">Routen</button>
+        <button role="tab" aria-selected="false" data-tab="weather">Wetter</button>
+      </div>
+      <section class="panel-body" id="tab-routes" role="tabpanel"></section>
+      <section class="panel-body" id="tab-weather" role="tabpanel" hidden></section>
+    </aside>
+
+    <!-- Kartensteuerung -->
+    <div class="map-controls">
+      <div class="ctrl-group">
+        <button class="ctrl" id="btn-zoom-in" aria-label="Hineinzoomen" data-icon="plus"></button>
+        <button class="ctrl" id="btn-zoom-out" aria-label="Herauszoomen" data-icon="minus"></button>
+      </div>
+      <div class="ctrl-group">
+        <button class="ctrl" id="btn-style" aria-label="Kartenstil" aria-haspopup="true" data-icon="layers"></button>
+        <button class="ctrl" id="btn-3d" aria-label="3D-Ansicht" aria-pressed="false"><span class="ctrl-text">3D</span></button>
+        <button class="ctrl" id="btn-weather" aria-label="Wetterkarte" aria-pressed="false" data-icon="cloudSun"></button>
+      </div>
+      <div class="popover" id="style-popover" hidden>
+        <p class="popover-title">Karte</p>
+        <div class="style-options">
+          <button data-style="standard" aria-pressed="true"><span class="swatch sw-standard"></span>Standard</button>
+          <button data-style="topo" aria-pressed="false"><span class="swatch sw-topo"></span>Topo</button>
+          <button data-style="satellite" aria-pressed="false"><span class="swatch sw-sat"></span>Satellit</button>
+        </div>
+        <label class="switch-row">
+          <span>Höhenlinien</span>
+          <input type="checkbox" id="toggle-contours" role="switch" checked />
+        </label>
+        <label class="switch-row">
+          <span>Markierte Wanderwege</span>
+          <input type="checkbox" id="toggle-trails" role="switch" />
+        </label>
+      </div>
+    </div>
+
+    <!-- Wetterkarte: Ebenen + Zeitleiste -->
+    <div class="weatherbar" id="weatherbar" hidden>
+      <div class="wb-layers" role="radiogroup" aria-label="Wetterebene">
+        <button data-layer="avalanche" class="wb-ava">Lawinen</button>
+        <button data-layer="radar">Radar</button>
+        <button data-layer="precip" aria-checked="true">Niederschlag</button>
+        <button data-layer="clouds">Wolken</button>
+        <button data-layer="thunder">Gewitter</button>
+        <button data-layer="wind">Wind</button>
+      </div>
+      <div class="wb-wind-level" id="wb-wind-level" hidden>
+        <button data-level="10m" aria-pressed="true">Boden</button>
+        <button data-level="700hPa" aria-pressed="false">3000 m</button>
+      </div>
+      <div class="wb-daychips" id="wb-daychips" role="tablist" aria-label="Tag wählen"></div>
+      <div class="wb-timeline">
+        <button class="wb-play" id="wb-play" aria-label="Abspielen" data-icon="play"></button>
+        <div class="wb-track">
+          <div class="wb-timerow">
+            <button class="wb-step" id="wb-prev" aria-label="Eine Stunde zurück" data-icon="chevronLeft"></button>
+            <div class="wb-time" id="wb-time"></div>
+            <button class="wb-step" id="wb-next" aria-label="Eine Stunde weiter" data-icon="chevron"></button>
+          </div>
+          <input type="range" id="wb-slider" min="0" max="71" step="0.05" value="0" aria-label="Zeitpunkt" />
+          <div class="wb-days" id="wb-days"></div>
+        </div>
+      </div>
+      <div class="wb-foot">
+        <div class="wb-legend" id="wb-legend"></div>
+        <a class="wb-link" id="wb-windy" target="_blank" rel="noopener">Bei Windy öffnen</a>
+      </div>
+      <p class="wb-status" id="wb-status" hidden></p>
+      <p class="wb-hint" id="wb-hint" hidden><span id="wb-hint-text"></span><button id="wb-hint-btn"></button></p>
+    </div>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
