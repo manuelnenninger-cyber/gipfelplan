@@ -111,11 +111,13 @@ Alle Dienste sind ohne Schlüssel nutzbar, aber für faire, persönliche Nutzung
 | Radar | RainViewer | seit 2026 nur noch letzte 2 h, Zoom bis 7, persönliche Nutzung |
 | Wanderwege | Waymarked Trails | |
 
-## Wenn es online gehen soll
+## Online (Vercel)
 
-1. `npm run build` erzeugt die statische Seite in `dist/`.
-2. BRouter und Overpass laufen im Dev-Server über einen Proxy (siehe `vite.config.js`). Online braucht es denselben Proxy, z. B. als Cloudflare Worker, Netlify/Vercel-Rewrite oder kleiner Node-Server. Nur die Pfade in `src/config.js` anpassen.
-3. Für mehr Nutzer: Open-Meteo-Abo oder eigene Instanz, eigener BRouter-Server (Docker-Image vorhanden), Kartenkacheln von einem Anbieter mit Vertrag.
+Die App läuft als statische Seite auf [Vercel](https://vercel.com). `vercel.json` legt den Build fest (`npm run build` → `dist/`) und leitet die Proxy-Pfade für BRouter und Overpass an die echten Dienste weiter – dieselben Pfade wie im Dev-Server (`vite.config.js`), der Code muss also nichts unterscheiden.
+
+Einrichten (einmalig): Auf vercel.com mit GitHub anmelden → „Add New… → Project“ → Repository `gipfelplan` importieren → „Deploy“. Danach veröffentlicht jeder Push auf `main` automatisch eine neue Version; Pull Requests bekommen eine eigene Vorschau-Adresse.
+
+Für mehr Nutzer: Open-Meteo-Abo oder eigene Instanz, eigener BRouter-Server (Docker-Image vorhanden), Kartenkacheln von einem Anbieter mit Vertrag. Die Satellitenkarte (Esri) ist nur für die private Nutzung gedacht.
 
 ## Ideen für die nächsten Schritte
 

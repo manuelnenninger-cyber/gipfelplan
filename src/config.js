@@ -1,5 +1,5 @@
-// Alle externen Dienste an einer Stelle. Für ein späteres Hosting im Web
-// müssen nur die Proxy-Pfade (BRouter, Overpass) auf einen eigenen Server zeigen.
+// Alle externen Dienste an einer Stelle. BRouter und Overpass laufen über die
+// Proxy-Pfade /proxy/… – lokal im Vite-Dev-Server, online über vercel.json.
 export const API = {
   // Gipfelsuche (OSM, von komoot betrieben)
   photon: 'https://photon.komoot.io/api/',
