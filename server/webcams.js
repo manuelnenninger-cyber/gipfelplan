@@ -3,6 +3,17 @@
 // API-Schlüssel nicht im Browser landet. Schlüssel: Umgebungsvariable WINDY_WEBCAMS_KEY.
 const BASE = 'https://api.windy.com/webcams/api/v3/webcams';
 
+/** „Grainau: Bayerische Zugspitzbahn – …“ → „Bayerische Zugspitzbahn – …“ (der Ort steht extra daneben) */
+export function cleanTitle(title, city) {
+  const t = (title || '').trim();
+  if (!t) return 'Webcam';
+  if (city && t.startsWith(city)) {
+    const rest = t.slice(city.length).replace(/^\s*[:›»>-]\s*/, '').trim();
+    if (rest.length > 3) return rest;
+  }
+  return t;
+}
+
 /** Antwort der Windy-API auf das Nötigste reduzieren */
 export function normalizeWebcam(w) {
   const loc = w.location || {};
@@ -12,7 +23,7 @@ export function normalizeWebcam(w) {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   return {
     id: String(w.webcamId ?? w.id),
-    title: w.title || 'Webcam',
+    title: cleanTitle(w.title, loc.city),
     lat, lng,
     place: [loc.city, loc.region].filter(Boolean).join(', ') || null,
     updated: w.lastUpdatedOn || null,

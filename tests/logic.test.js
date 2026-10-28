@@ -376,7 +376,7 @@ test('Lawinen: Bericht, Teilgebiete, Gipfelstufe', () => {
   assert.equal(levelAt({ ...rep, low: 3 }, 2962), null);
 });
 
-import { normalizeWebcam, windyWebcams } from '../server/webcams.js';
+import { normalizeWebcam, windyWebcams, cleanTitle } from '../server/webcams.js';
 import { ageText } from '../src/api/webcams.js';
 
 test('Webcams: Windy-Antwort aufbereiten', async () => {
@@ -389,6 +389,9 @@ test('Webcams: Windy-Antwort aufbereiten', async () => {
   };
   const c = normalizeWebcam(w);
   assert.equal(c.id, '1234');
+  assert.equal(cleanTitle('Grainau › Südosten: Zugspitze - Zugspitzeplatt', 'Grainau'), 'Südosten: Zugspitze - Zugspitzeplatt');
+  assert.equal(cleanTitle('Grainau: Bayerische Zugspitzbahn', 'Grainau'), 'Bayerische Zugspitzbahn');
+  assert.equal(cleanTitle('Grainau', 'Grainau'), 'Grainau');
   assert.equal(c.place, 'Grainau, Bayern');
   assert.equal(c.preview, 'https://imgproxy.windy.com/p.jpg');
   assert.equal(c.provider, 'https://www.bergfex.at/x');
