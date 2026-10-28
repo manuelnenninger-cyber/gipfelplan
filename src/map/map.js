@@ -112,7 +112,8 @@ export function createMapView(container) {
     addMapIcon(map, 'gp-hut');
     addMapIcon(map, 'gp-parking');
     addMapIcon(map, 'gp-webcam');
-    if (!map.getSource('gp-webcams')) map.addSource('gp-webcams', { type: 'geojson', data: camData });
+    // Mehrere Webcams am selben Ort (z. B. 11 am Zugspitzgipfel) werden zu einem Symbol mit Zahl
+    if (!map.getSource('gp-webcams')) map.addSource('gp-webcams', { type: 'geojson', data: camData, cluster: true, clusterRadius: 26, clusterMaxZoom: 20 });
     if (!map.getSource('gp-routes')) {
       map.addSource('gp-routes', { type: 'geojson', data: EMPTY, tolerance: 0.6 });
       map.addSource('gp-starts', { type: 'geojson', data: EMPTY });
@@ -172,7 +173,14 @@ export function createMapView(container) {
           'icon-size': ['interpolate', ['linear'], ['zoom'], 9.5, 0.65, 14, 0.95],
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
+          'text-field': ['case', ['has', 'point_count'], ['to-string', ['get', 'point_count']], ''],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 10.5,
+          'text-offset': [0.95, -0.95],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
         },
+        paint: { 'text-color': '#ffffff', 'text-halo-color': '#ff453a', 'text-halo-width': 2.6 },
       });
       map.addLayer({
         id: 'gp-hover', type: 'circle', source: 'gp-hover',
@@ -226,8 +234,15 @@ export function createMapView(container) {
   map.on('click', (e) => {
     const f = poiAt(e.point);
     if (f?.layer.id === 'gp-webcams') {
-      const cam = camById.get(f.properties.id);
-      if (cam) openWebcamCard(map, cam, { peak: state.peak });
+      if (f.properties.cluster) {
+        map.getSource('gp-webcams').getClusterLeaves(f.properties.cluster_id, 60, 0).then((leaves) => {
+          const cams = leaves.map((l) => camById.get(l.properties.id)).filter(Boolean);
+          if (cams.length) openWebcamCard(map, cams, { peak: state.peak });
+        });
+      } else {
+        const cam = camById.get(f.properties.id);
+        if (cam) openWebcamCard(map, [cam], { peak: state.peak });
+      }
       return;
     }
     const place = f && poiById.get(f.properties.id);
@@ -236,7 +251,8 @@ export function createMapView(container) {
   for (const l of POI_LAYERS) {
     map.on('mousemove', l, (e) => {
       map.getCanvas().style.cursor = 'pointer';
-      map.getCanvas().title = e.features?.[0]?.properties?.title || '';
+      const p = e.features?.[0]?.properties;
+      map.getCanvas().title = p?.cluster ? `${p.point_count} Webcams` : p?.title || '';
     });
     map.on('mouseleave', l, () => { map.getCanvas().style.cursor = ''; map.getCanvas().title = ''; });
   }

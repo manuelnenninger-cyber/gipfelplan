@@ -195,30 +195,51 @@ function showCamImage(map, el, cam, signal, retry) {
   pic.src = cam.preview;
 }
 
-export function openWebcamCard(map, cam, { peak } = {}) {
+/**
+ * @param cams eine oder mehrere Webcams am selben Ort (mit ‹ › blättern)
+ */
+export function openWebcamCard(map, cams, { peak } = {}) {
   closePoiCard();
   ctrl = new AbortController();
   const { signal } = ctrl;
+  let i = 0;
+  let token = 0;
   const el = document.createElement('div');
   el.className = 'poi-card';
-  el.innerHTML = `<figure class="poi-photo cam" ><div class="cam-wait">Lade Bild …</div></figure><div class="poi-body"></div>`;
+  el.innerHTML = `<figure class="poi-photo cam"><div class="cam-wait">Lade Bild …</div></figure>
+    ${cams.length > 1 ? `<div class="cam-pager"><button type="button" data-d="-1" aria-label="Vorherige Webcam">${icon('chevronLeft')}</button><span></span><button type="button" data-d="1" aria-label="Nächste Webcam">${icon('chevron')}</button></div>` : ''}
+    <div class="poi-body"></div>`;
   popup = new maplibregl.Popup({ className: 'poi-popup', maxWidth: '320px', offset: 14, focusAfterOpen: false })
-    .setLngLat([cam.lng, cam.lat])
+    .setLngLat([cams[0].lng, cams[0].lat])
     .setDOMContent(el)
     .addTo(map);
   popup.on('close', () => { if (ctrl?.signal === signal) ctrl.abort(); });
-  renderWebcam(el, cam, peak);
-  keepInView(map, el);
 
   // Bild-Adressen sind nur kurz gültig: bei Bedarf frische Liste holen
-  const fresh = (force) => (peak ? fetchWebcams(peak.lat, peak.lng, { fresh: force, signal }) : Promise.resolve(null))
+  const fresh = (cam, force) => (peak ? fetchWebcams(peak.lat, peak.lng, { fresh: force, signal }) : Promise.resolve(null))
     .then((d) => d?.cams.find((c) => c.id === cam.id) || cam)
     .catch(() => cam);
-  fresh(false).then((c) => {
-    if (signal.aborted) return;
-    showCamImage(map, el, c, signal, () => fresh(true).then((c2) => {
-      if (signal.aborted) return;
-      showCamImage(map, el, c2, signal, () => { el.querySelector('.poi-photo').innerHTML = '<div class="cam-wait">Bild gerade nicht verfügbar</div>'; });
-    }));
-  });
+
+  function show() {
+    const cam = cams[i];
+    const my = ++token;
+    const pager = el.querySelector('.cam-pager span');
+    if (pager) pager.textContent = `${i + 1} / ${cams.length}`;
+    el.querySelector('.poi-photo').innerHTML = '<div class="cam-wait">Lade Bild …</div>';
+    renderWebcam(el, cam, peak);
+    const alive = { get aborted() { return signal.aborted || my !== token; } };
+    fresh(cam, false).then((c) => {
+      if (alive.aborted) return;
+      showCamImage(map, el, c, alive, () => fresh(cam, true).then((c2) => {
+        if (alive.aborted) return;
+        showCamImage(map, el, c2, alive, () => { el.querySelector('.poi-photo').innerHTML = '<div class="cam-wait">Bild gerade nicht verfügbar</div>'; });
+      }));
+    });
+  }
+  el.querySelectorAll('.cam-pager button').forEach((b) => b.addEventListener('click', () => {
+    i = (i + Number(b.dataset.d) + cams.length) % cams.length;
+    show();
+  }));
+  show();
+  keepInView(map, el);
 }
