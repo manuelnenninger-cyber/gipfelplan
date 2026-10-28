@@ -2,6 +2,7 @@
 import maplibregl from 'maplibre-gl';
 import { poiDetails, poiImage } from '../api/poi.js';
 import { demElevation } from '../api/osm.js';
+import { fetchWebcams, ageText } from '../api/webcams.js';
 import { haversine } from '../util/geo.js';
 import { escapeHtml } from '../util/format.js';
 import { icon } from './icons.js';
@@ -143,5 +144,81 @@ export function openPoiCard(map, place, { peak } = {}) {
   }).catch((e) => {
     if (signal.aborted) return;
     el.querySelector('.poi-body').innerHTML = `<div class="poi-loading">Infos nicht verfügbar (${escapeHtml(e.message)})</div>`;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Webcams: aktuelles Bild, Link zum Anbieter (z. B. bergfex, foto-webcam.eu)
+// ---------------------------------------------------------------------------
+const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return null; } };
+
+function renderWebcam(el, cam, peak) {
+  const dist = peak ? haversine([cam.lng, cam.lat], [peak.lng, peak.lat]) : null;
+  const sub = [cam.place, dist != null ? (dist < 300 ? 'am Gipfel' : `${km(dist)} vom Gipfel`) : null].filter(Boolean).join(' · ');
+  const prov = cam.provider && host(cam.provider);
+  const actions = [
+    prov ? `<a class="poi-btn primary" href="${escapeHtml(cam.provider)}" target="_blank" rel="noopener">${icon('external')}${escapeHtml(prov)}</a>`
+      : `<a class="poi-btn primary" href="${escapeHtml(cam.detail)}" target="_blank" rel="noopener">${icon('external')}Ansehen</a>`,
+    cam.player ? `<a class="poi-btn" href="${escapeHtml(cam.player)}" target="_blank" rel="noopener">${icon('play2')}Zeitraffer</a>` : '',
+  ].join('');
+  el.querySelector('.poi-body').innerHTML = `
+    <div class="poi-head">
+      <span class="poi-ico cam">${icon('camera')}</span>
+      <div><h3>${escapeHtml(cam.title)}</h3><p>${escapeHtml(sub || 'Webcam')}</p></div>
+    </div>
+    <div class="poi-actions">${actions}</div>
+    <a class="poi-src" href="https://www.windy.com/webcams" target="_blank" rel="noopener">Webcams provided by Windy.com</a>`;
+}
+
+function showCamImage(map, el, cam, signal, retry) {
+  const fig = el.querySelector('.poi-photo');
+  if (!cam.preview) { fig.hidden = true; return; }
+  const pic = new Image();
+  pic.alt = cam.title;
+  pic.decoding = 'async';
+  pic.referrerPolicy = 'no-referrer';
+  pic.onload = () => {
+    if (signal.aborted) return;
+    const age = ageText(cam.updated);
+    const recent = cam.updated && Date.now() - new Date(cam.updated).getTime() < 45 * 60000;
+    fig.innerHTML = '';
+    const a = document.createElement('a');
+    a.href = cam.detail; a.target = '_blank'; a.rel = 'noopener'; a.className = 'cam-link';
+    a.append(pic);
+    fig.append(a);
+    if (age) fig.insertAdjacentHTML('beforeend', `<span class="cam-age${recent ? ' is-live' : ''}">${escapeHtml(age)}</span>`);
+    fig.hidden = false;
+    keepInView(map, el);
+  };
+  // Abgelaufene Bild-Adresse (nach ca. 10 Minuten): Liste neu laden und einmal wiederholen
+  pic.onerror = () => { if (!signal.aborted) retry?.(); };
+  pic.src = cam.preview;
+}
+
+export function openWebcamCard(map, cam, { peak } = {}) {
+  closePoiCard();
+  ctrl = new AbortController();
+  const { signal } = ctrl;
+  const el = document.createElement('div');
+  el.className = 'poi-card';
+  el.innerHTML = `<figure class="poi-photo cam" ><div class="cam-wait">Lade Bild …</div></figure><div class="poi-body"></div>`;
+  popup = new maplibregl.Popup({ className: 'poi-popup', maxWidth: '320px', offset: 14, focusAfterOpen: false })
+    .setLngLat([cam.lng, cam.lat])
+    .setDOMContent(el)
+    .addTo(map);
+  popup.on('close', () => { if (ctrl?.signal === signal) ctrl.abort(); });
+  renderWebcam(el, cam, peak);
+  keepInView(map, el);
+
+  // Bild-Adressen sind nur kurz gültig: bei Bedarf frische Liste holen
+  const fresh = (force) => (peak ? fetchWebcams(peak.lat, peak.lng, { fresh: force, signal }) : Promise.resolve(null))
+    .then((d) => d?.cams.find((c) => c.id === cam.id) || cam)
+    .catch(() => cam);
+  fresh(false).then((c) => {
+    if (signal.aborted) return;
+    showCamImage(map, el, c, signal, () => fresh(true).then((c2) => {
+      if (signal.aborted) return;
+      showCamImage(map, el, c2, signal, () => { el.querySelector('.poi-photo').innerHTML = '<div class="cam-wait">Bild gerade nicht verfügbar</div>'; });
+    }));
   });
 }

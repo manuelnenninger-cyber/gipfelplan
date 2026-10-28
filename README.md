@@ -59,6 +59,8 @@ Zwei Raster werden ineinander geblendet: ein regionales (14 × 14 Punkte) für d
 
 **Lawinenlage**: Im Wetter-Tab steht oben die aktuelle Lawinenwarnstufe der Gipfelregion (EAWS-Farben): Stufe, Region und Warndienst, Stufe ober- und unterhalb der Höhengrenze, Stufe auf Gipfelhöhe, Anstieg im Tagesverlauf, Lawinenprobleme mit Höhe und Hangrichtungen, Kernaussage, Tendenz, Gültigkeit und Link zum ganzen Bericht. „Heute“ und „Morgen“ (ab ca. 17 Uhr) haben einen Bericht. In der Wetterkarte färbt die Ebene „Lawinen“ alle Regionen ein – getrennt nach ober-/unterhalb der Höhengrenze wie auf avalanche.report; die Zeitleiste wählt den passenden Tagesbericht (vor-/nachmittags). Gibt es für die Gipfelregion eine Stufe, öffnet die Wetterkarte direkt mit dieser Ebene. Außerhalb der Saison steht „Keine Warnstufe“. Mit `?lawinen=2026-02-15` in der Adresse lässt sich ein vergangener Wintertag als Vorschau anzeigen.
 
+**Webcams**: Kamerasymbole zeigen Webcams im Umkreis von 25 km um den Gipfel. Antippen öffnet das aktuelle Bild (mit Alter, z. B. „vor 7 Min.“), einen Link zum Anbieter (z. B. bergfex, foto-webcam.eu, Panomax) und den Zeitraffer. Quelle ist die Windy Webcams API; sie braucht einen kostenlosen Schlüssel (siehe „Webcams einrichten“). Ohne Schlüssel bleibt die Ebene einfach leer.
+
 **Hütten und Parkplätze** sind anklickbar und öffnen eine kleine Infokarte: Foto (aus OSM/Wikidata verlinkt, bei Hütten sonst ein Foto aus unmittelbarer Nähe von Wikimedia Commons), Öffnungszeit mit „geöffnet/derzeit geschlossen“ (aus der Saison in `opening_hours`), Betreiber, Schlafplätze, Gebühr und Stellplätze, Lage zum Gipfel (Luftlinie, Höhenmeter darunter), Knöpfe für Website, Anrufen und Navigation (Apple Karten bzw. Google Maps).
 
 ## Leistung
@@ -104,6 +106,7 @@ Alle Dienste sind ohne Schlüssel nutzbar, aber für faire, persönliche Nutzung
 | Gelände 3D, Höhenlinien | AWS Terrain Tiles (Terrarium) | Höhenlinien werden im Browser berechnet (maplibre-contour) |
 | Suche | Photon (komoot) | |
 | Lawinenlage | EAWS-Berichte über avalanche.report (`static.avalanche.report`: Warnstufen, Berichte, Regionsgrenzen als PMTiles) | Bibliotheken pmtiles, vector-tile, pbf werden aus dem CDN nachgeladen |
+| Webcams | Windy Webcams API (kostenloser Schlüssel) | Bilder verlinken auf Windy, Hinweis „Webcams provided by Windy.com“ ist Pflicht; Bild-Adressen gelten ca. 10 Minuten |
 | Hütten-/Parkplatzinfos | OSM-Tags (Overpass, sonst Nominatim), Fotos von Wikidata/Wikimedia Commons | |
 | Gipfelhöhen | Nominatim (OSM) | exakte Höhe aus OSM; Höhenmodell nur als Notlösung („ca.“) |
 | Markierte Wege | Waymarked Trails (OSM) | benannte Wanderwege, die den Gipfel erreichen (z. B. Höllentalsteig); BRouter folgt ihnen vom nächsten Talort |
@@ -118,6 +121,14 @@ Alle Dienste sind ohne Schlüssel nutzbar, aber für faire, persönliche Nutzung
 Die App läuft als statische Seite auf [Vercel](https://vercel.com). `vercel.json` legt den Build fest (`npm run build` → `dist/`) und leitet die Proxy-Pfade für BRouter und Overpass an die echten Dienste weiter – dieselben Pfade wie im Dev-Server (`vite.config.js`), der Code muss also nichts unterscheiden.
 
 Einrichten (einmalig): Auf vercel.com mit GitHub anmelden → „Add New… → Project“ → Repository `gipfelplan` importieren → „Deploy“. Danach veröffentlicht jeder Push auf `main` automatisch eine neue Version; Pull Requests bekommen eine eigene Vorschau-Adresse.
+
+### Webcams einrichten
+
+1. Kostenlosen Schlüssel holen: https://api.windy.com/keys (Produkt „Webcams API“).
+2. Online: in Vercel unter Settings → Environment Variables `WINDY_WEBCAMS_KEY` anlegen und neu veröffentlichen (Deployments → Redeploy).
+3. Lokal: `.env.example` nach `.env.local` kopieren und den Schlüssel eintragen. `.env.local` wird nicht eingecheckt.
+
+Der Schlüssel bleibt auf dem Server: Der Browser fragt `/api/webcams`, das online die Vercel-Funktion `api/webcams.js` und lokal der Vite-Dev-Server beantwortet (gemeinsamer Code in `server/webcams.js`).
 
 Für mehr Nutzer: Open-Meteo-Abo oder eigene Instanz, eigener BRouter-Server (Docker-Image vorhanden), Kartenkacheln von einem Anbieter mit Vertrag. Die Satellitenkarte (Esri) ist nur für die private Nutzung gedacht.
 

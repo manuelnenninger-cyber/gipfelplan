@@ -6,12 +6,12 @@ import { icon } from '../ui/icons.js';
 import { escapeHtml } from '../util/format.js';
 import { typeLabel } from '../api/osm.js';
 import { addOutdoorLayers, styleOutdoor, addMapIcon, REBUILT } from './outdoorLayers.js';
-import { openPoiCard, closePoiCard } from '../ui/poiCard.js';
+import { openPoiCard, closePoiCard, openWebcamCard } from '../ui/poiCard.js';
 
 // Eigene Quellen/Ebenen beginnen mit "gp-" und überleben Stilwechsel.
 // Ebenen mit "gp-wx" verwaltet das Wetter-Overlay selbst.
 const isOurs = (id) => id.startsWith('gp-') && !id.startsWith('gp-wx');
-const POI_LAYERS = ['gp-parking', 'gp-huts'];
+const POI_LAYERS = ['gp-parking', 'gp-huts', 'gp-webcams'];
 const BELOW_LABELS = (id) => id === 'gp-hillshade' || id === 'gp-trails' || id.startsWith('gp-radar');
 
 const EMPTY = { type: 'FeatureCollection', features: [] };
@@ -74,6 +74,8 @@ export function createMapView(container) {
   let peakMarker = null;
   let hutData = EMPTY;
   const poiById = new Map();
+  const camById = new Map();
+  let camData = EMPTY;
 
   // --- Eigene Quellen & Ebenen ------------------------------------------------
   function ensureLayers() {
@@ -109,6 +111,8 @@ export function createMapView(container) {
     if (!map.getSource('gp-huts')) map.addSource('gp-huts', { type: 'geojson', data: hutData });
     addMapIcon(map, 'gp-hut');
     addMapIcon(map, 'gp-parking');
+    addMapIcon(map, 'gp-webcam');
+    if (!map.getSource('gp-webcams')) map.addSource('gp-webcams', { type: 'geojson', data: camData });
     if (!map.getSource('gp-routes')) {
       map.addSource('gp-routes', { type: 'geojson', data: EMPTY, tolerance: 0.6 });
       map.addSource('gp-starts', { type: 'geojson', data: EMPTY });
@@ -162,6 +166,15 @@ export function createMapView(container) {
       poiLayer('gp-parking', 'parking', 'gp-parking', 12.5);
       poiLayer('gp-huts', 'hut', 'gp-hut', 11);
       map.addLayer({
+        id: 'gp-webcams', type: 'symbol', source: 'gp-webcams', minzoom: 9.5,
+        layout: {
+          'icon-image': 'gp-webcam',
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 9.5, 0.65, 14, 0.95],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+      });
+      map.addLayer({
         id: 'gp-hover', type: 'circle', source: 'gp-hover',
         paint: { 'circle-radius': 7, 'circle-color': '#fff', 'circle-stroke-color': '#1d1d1f', 'circle-stroke-width': 3 },
       });
@@ -212,6 +225,11 @@ export function createMapView(container) {
   // Hütte oder Parkplatz antippen: Infokarte
   map.on('click', (e) => {
     const f = poiAt(e.point);
+    if (f?.layer.id === 'gp-webcams') {
+      const cam = camById.get(f.properties.id);
+      if (cam) openWebcamCard(map, cam, { peak: state.peak });
+      return;
+    }
     const place = f && poiById.get(f.properties.id);
     if (place) openPoiCard(map, place, { peak: state.peak });
   });
@@ -371,6 +389,21 @@ export function createMapView(container) {
       });
     },
 
+    /** Webcams in der Nähe (anklickbar, Vorschaubild in der Infokarte) */
+    showWebcams(cams) {
+      camById.clear();
+      cams.forEach((c) => camById.set(c.id, c));
+      camData = {
+        type: 'FeatureCollection',
+        features: cams.map((c) => ({
+          type: 'Feature',
+          properties: { id: c.id, title: `Webcam: ${c.title}` },
+          geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
+        })),
+      };
+      map.getSource('gp-webcams')?.setData(camData);
+    },
+
     /** Hütten und Parkplätze anzeigen (anklickbar) */
     showPOIs(places) {
       closePoiCard();
@@ -429,6 +462,7 @@ export function createMapView(container) {
       peakMarker = null;
       state.peak = null;
       this.showPOIs([]);
+      this.showWebcams([]);
       state.routes = [];
       state.selected = null;
       renderRoutes();

@@ -375,3 +375,27 @@ test('Lawinen: Bericht, Teilgebiete, Gipfelstufe', () => {
   assert.equal(levelAt(rep, 1800), 2);
   assert.equal(levelAt({ ...rep, low: 3 }, 2962), null);
 });
+
+import { normalizeWebcam, windyWebcams } from '../server/webcams.js';
+import { ageText } from '../src/api/webcams.js';
+
+test('Webcams: Windy-Antwort aufbereiten', async () => {
+  const w = {
+    webcamId: 1234, title: 'Zugspitze Gipfel', status: 'active', lastUpdatedOn: '2026-10-28T06:50:00Z',
+    location: { latitude: 47.421, longitude: 10.985, city: 'Grainau', region: 'Bayern' },
+    images: { current: { preview: 'https://imgproxy.windy.com/p.jpg', thumbnail: 't.jpg' }, daylight: { preview: 'd.jpg' } },
+    urls: { detail: 'https://www.windy.com/webcams/1234', provider: 'https://www.bergfex.at/x' },
+    player: { day: 'https://webcams.windy.com/webcams/public/embed/player/1234/day' },
+  };
+  const c = normalizeWebcam(w);
+  assert.equal(c.id, '1234');
+  assert.equal(c.place, 'Grainau, Bayern');
+  assert.equal(c.preview, 'https://imgproxy.windy.com/p.jpg');
+  assert.equal(c.provider, 'https://www.bergfex.at/x');
+  assert.equal(normalizeWebcam({ webcamId: 1, location: {} }), null);
+  // ohne Schlüssel: sauber „nicht eingerichtet“, kein Abruf
+  assert.deepEqual(await windyWebcams(new URLSearchParams('lat=47&lon=11'), ''), { status: 503, body: { error: 'no-key' } });
+  const now = new Date('2026-10-28T07:00:00Z').getTime();
+  assert.equal(ageText('2026-10-28T06:50:00Z', now), 'vor 10 Min.');
+  assert.equal(ageText('2026-10-28T03:00:00Z', now), 'vor 4 Std.');
+});

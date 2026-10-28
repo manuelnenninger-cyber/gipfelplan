@@ -710,3 +710,18 @@ body.map-moving .toast {
 .lg-ava-name { margin-left: 4px; font-size: 11.5px; color: var(--text-2); }
 .lg-ava[style*="#1a1a1a"] { color: #fff; }
 .wb-layers button.wb-ava:not([aria-checked="true"]) { box-shadow: inset 0 0 0 1.5px #ff9900; }
+
+/* Webcams */
+.poi-ico.cam { background: #20313f; }
+.poi-photo.cam { aspect-ratio: 400 / 224; background: #1b232b; }
+.poi-photo .cam-link { display: block; width: 100%; height: 100%; }
+.cam-wait { display: grid; place-items: center; height: 100%; font-size: 12.5px; color: rgba(255, 255, 255, 0.75); }
+.cam-age {
+  position: absolute; left: 8px; top: 8px; padding: 3px 8px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; color: #fff; background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.cam-age.is-live::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%;
+  background: #ff453a; vertical-align: 1px;
+}

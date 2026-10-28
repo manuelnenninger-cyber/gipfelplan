@@ -57,6 +57,22 @@ export function addMapIcon(map, id) {
     x.lineJoin = 'round';
     x.lineWidth = 3 * r; x.strokeStyle = '#ffffff'; x.stroke();
     x.fillStyle = '#5a3a1e'; x.fill();
+  } else if (id === 'gp-webcam') {
+    // dunkles Quadrat mit weißer Kamera
+    const s = 26 * r;
+    c.width = s; c.height = s;
+    x.beginPath();
+    x.roundRect(2 * r, 2 * r, s - 4 * r, s - 4 * r, 6 * r);
+    x.fillStyle = '#20313f';
+    x.fill();
+    x.lineWidth = 2 * r; x.strokeStyle = '#ffffff'; x.stroke();
+    x.fillStyle = '#ffffff';
+    x.beginPath(); x.roundRect(6.5 * r, 9 * r, 13 * r, 9.5 * r, 2 * r); x.fill();   // Gehäuse
+    x.fillRect(10 * r, 7.2 * r, 5 * r, 2.4 * r);                                   // Sucher
+    x.fillStyle = '#20313f';
+    x.beginPath(); x.arc(13 * r, 13.7 * r, 3 * r, 0, Math.PI * 2); x.fill();          // Objektiv
+    x.fillStyle = '#7fd3ff';
+    x.beginPath(); x.arc(13 * r, 13.7 * r, 1.6 * r, 0, Math.PI * 2); x.fill();
   } else if (id === 'gp-hut' || id === 'gp-parking') {
     // abgerundetes Quadrat mit weißem Rand, darin Haus bzw. „P“
     const s = 26 * r;

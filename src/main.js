@@ -13,6 +13,7 @@ import { importGPXFile } from './api/gpx.js';
 import { fmtInt } from './util/format.js';
 import { boundsOf } from './util/geo.js';
 import { lookupRegion, avalancheReport, avaKey } from './api/avalanche.js';
+import { fetchWebcams } from './api/webcams.js';
 
 hydrateIcons();
 
@@ -178,6 +179,10 @@ async function selectPeak(input) {
   routesPanel.loading('Suche Startpunkte im Umkreis …');
   forecastPanel.loading();
   loadAvalanche(peak, stale);
+  // Webcams im Umkreis (fehlt der Schlüssel, bleibt die Ebene einfach leer)
+  fetchWebcams(peak.lat, peak.lng, { signal })
+    .then((d) => { if (!stale() && d) view.showWebcams(d.cams); })
+    .catch((e) => { if (e.name !== 'AbortError') console.info('Webcams nicht geladen:', e.message); });
 
   // Höhe aus dem Höhenmodell (schnell) für das Wetter, OSM-Höhe folgt mit den Startpunkten
   const demP = peak.ele ? Promise.resolve(peak.ele) : demElevation(peak.lat, peak.lng).catch(() => null);
