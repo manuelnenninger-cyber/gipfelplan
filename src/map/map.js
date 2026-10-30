@@ -316,6 +316,20 @@ export function createMapView(container) {
     return { top, bottom, left: 30, right: 30 };
   };
 
+  // MapLibre merkt sich die Polsterung eines flyTo (Gipfel mittig über dem Sheet) und
+  // rechnet sie bei jedem fitBounds noch einmal dazu – dann passt am Handy nichts mehr.
+  // Deshalb vorher zurücksetzen; das neue Polster gilt dann allein.
+  const ZERO = { top: 0, bottom: 0, left: 0, right: 0 };
+  function fitBounds(bounds, opts) {
+    const p = map.getPadding();
+    if (p.top || p.bottom || p.left || p.right) {
+      // Polster entfernen, ohne dass die Karte springt: Bildschirmmitte bleibt, wo sie ist
+      const { clientWidth: w, clientHeight: h } = map.getContainer();
+      map.jumpTo({ center: map.unproject([w / 2, h / 2]), padding: ZERO });
+    }
+    map.fitBounds(bounds, opts);
+  }
+
   let hoverRaf = 0;
   let hoverNext = null;
 
@@ -446,19 +460,19 @@ export function createMapView(container) {
       state.selected = id;
       renderRoutes();
       const r = state.routes.find((x) => x.id === id);
-      if (r && fit) map.fitBounds(boundsOf(r.coords), { padding: padding(), duration: 900, pitch: map.getPitch() });
+      if (r && fit) fitBounds(boundsOf(r.coords), { padding: padding(), duration: 900, pitch: map.getPitch() });
     },
 
     /** Gewählte Route (oder alle) neu in den freien Kartenbereich einpassen */
     refit() {
       const r = state.routes.find((x) => x.id === state.selected);
       const coords = r ? r.coords : state.routes.flatMap((x) => x.coords);
-      if (coords.length) map.fitBounds(boundsOf(coords), { padding: padding(), duration: 600, pitch: map.getPitch() });
+      if (coords.length) fitBounds(boundsOf(coords), { padding: padding(), duration: 600, pitch: map.getPitch() });
     },
 
     fitRoutes() {
       const all = state.routes.flatMap((r) => r.coords);
-      if (all.length) map.fitBounds(boundsOf(all), { padding: padding(), duration: 1200, pitch: map.getPitch() });
+      if (all.length) fitBounds(boundsOf(all), { padding: padding(), duration: 1200, pitch: map.getPitch() });
     },
 
     setHover(coord) {
