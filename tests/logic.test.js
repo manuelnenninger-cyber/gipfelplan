@@ -402,3 +402,30 @@ test('Webcams: Windy-Antwort aufbereiten', async () => {
   assert.equal(ageText('2026-10-28T06:50:00Z', now), 'vor 10 Min.');
   assert.equal(ageText('2026-10-28T03:00:00Z', now), 'vor 4 Std.');
 });
+
+import { customTour, planTitle } from '../src/api/routing.js';
+
+test('Eigene Route: Titel, Rundtour, Überschreitung', () => {
+  assert.equal(planTitle([{ name: 'P Hammersbach' }, { name: 'Knorrhütte' }, { name: 'Zugspitze' }]), 'P Hammersbach → Knorrhütte → Zugspitze');
+  assert.equal(planTitle([{ name: 'A' }, { name: null }, { name: 'B' }, { name: 'C' }, { name: 'D' }]), 'A → … → D');
+  assert.equal(planTitle([{ name: null }, { name: null }]), 'Eigene Route');
+
+  // künstliche Strecke: 0 → 1000 m hoch → wieder runter an den Start
+  const line = (pts) => ({ features: [{ geometry: { coordinates: pts }, properties: {} }] });
+  const up = [[11, 47, 1000], [11, 47.01, 1500], [11, 47.02, 2000]];
+  const peak = { lat: 47.02, lng: 11, ele: 2000 };
+  const A = { lat: 47, lng: 11, name: 'P', type: 'parking' };
+  const G = { lat: 47.02, lng: 11, name: 'Gipfel', type: 'peak' };
+  const toTop = customTour(line(up), [A, G], peak, 'x');
+  assert.equal(toTop.oneWay, false); // endet oben: Rückweg gleich
+  assert.ok(toTop.timeDown > 0 && toTop.timeTotal > toTop.timeUp);
+  assert.ok(toTop.gapToSummit < 1);
+
+  const loop = customTour(line([...up, [11.01, 47.01, 1500], [11, 47, 1000]]), [A, G, { ...A }], peak, 'y');
+  assert.equal(loop.isLoop, true);
+  assert.ok(Math.abs(loop.timeTotal - (loop.timeUp + loop.timeDown)) < 1e-9);
+
+  const trav = customTour(line([...up, [11.02, 47.03, 1200]]), [A, G, { lat: 47.03, lng: 11.02, name: 'Tal', type: 'point' }], peak, 'z');
+  assert.equal(trav.oneWay, true);
+  assert.equal(trav.title, 'P → Gipfel → Tal');
+});

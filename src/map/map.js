@@ -7,6 +7,7 @@ import { escapeHtml } from '../util/format.js';
 import { typeLabel } from '../api/osm.js';
 import { addOutdoorLayers, styleOutdoor, addMapIcon, REBUILT } from './outdoorLayers.js';
 import { openPoiCard, closePoiCard, openWebcamCard } from '../ui/poiCard.js';
+import { PLAN_COLOR } from '../api/routing.js';
 
 // Eigene Quellen/Ebenen beginnen mit "gp-" und überleben Stilwechsel.
 // Ebenen mit "gp-wx" verwaltet das Wetter-Overlay selbst.
@@ -69,12 +70,14 @@ export function createMapView(container) {
     flat: false,
     saved: null,
     peak: null,
+    planning: null, // Funktion, die angetippte Punkte für die eigene Route bekommt
   };
   const listeners = { peak: [], route: [], styleload: [] };
   let peakMarker = null;
   let hutData = EMPTY;
   const poiById = new Map();
   const camById = new Map();
+  let planData = EMPTY;
   let camData = EMPTY;
 
   // --- Eigene Quellen & Ebenen ------------------------------------------------
@@ -187,6 +190,20 @@ export function createMapView(container) {
         paint: { 'circle-radius': 7, 'circle-color': '#fff', 'circle-stroke-color': '#1d1d1f', 'circle-stroke-width': 3 },
       });
     }
+    // Eigene Route (Planung): kräftige Linie über allem anderen
+    if (!map.getSource('gp-plan')) map.addSource('gp-plan', { type: 'geojson', data: planData });
+    if (!map.getLayer('gp-plan-casing')) {
+      map.addLayer({
+        id: 'gp-plan-casing', type: 'line', source: 'gp-plan',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#ffffff', 'line-width': 9 },
+      }, map.getLayer('gp-hover') ? 'gp-hover' : undefined);
+      map.addLayer({
+        id: 'gp-plan', type: 'line', source: 'gp-plan',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': PLAN_COLOR, 'line-width': 5 },
+      }, map.getLayer('gp-hover') ? 'gp-hover' : undefined);
+    }
     // 3D-Gebäude der Grundkarte aus: kosten viel, bringen am Berg nichts
     for (const l of map.getStyle().layers) {
       if (l.type === 'fill-extrusion') map.setLayoutProperty(l.id, 'visibility', 'none');
@@ -230,8 +247,29 @@ export function createMapView(container) {
     return layers.length ? map.queryRenderedFeatures(near(point), { layers })[0] : null;
   };
 
+  // Eigene Route planen: angetippte Stelle als Wegpunkt (Hütte, Parkplatz, Gipfel oder freier Punkt)
+  function planPick(e) {
+    const f = poiAt(e.point);
+    if (f && f.layer.id !== 'gp-webcams') {
+      const place = poiById.get(f.properties.id);
+      if (place) return { lat: place.lat, lng: place.lng, name: place.name || typeLabel(place.type), type: place.type };
+    }
+    const peaks = map.queryRenderedFeatures(near(e.point, 12)).filter((x) => x.sourceLayer === 'mountain_peak' && x.properties?.name);
+    if (peaks[0]) {
+      const [lng, lat] = peaks[0].geometry.coordinates;
+      return { lat, lng, name: peaks[0].properties['name:de'] || peaks[0].properties.name, type: 'peak' };
+    }
+    const pk = state.peak;
+    if (pk) {
+      const pp = map.project([pk.lng, pk.lat]);
+      if (Math.hypot(pp.x - e.point.x, pp.y - e.point.y) < 22) return { lat: pk.lat, lng: pk.lng, name: pk.name, type: 'peak' };
+    }
+    return { lat: e.lngLat.lat, lng: e.lngLat.lng, name: null, type: 'point' };
+  }
+
   // Hütte oder Parkplatz antippen: Infokarte
   map.on('click', (e) => {
+    if (state.planning) { state.planning(planPick(e)); return; }
     const f = poiAt(e.point);
     if (f?.layer.id === 'gp-webcams') {
       if (f.properties.cluster) {
@@ -254,20 +292,20 @@ export function createMapView(container) {
       const p = e.features?.[0]?.properties;
       map.getCanvas().title = p?.cluster ? `${p.point_count} Webcams` : p?.title || '';
     });
-    map.on('mouseleave', l, () => { map.getCanvas().style.cursor = ''; map.getCanvas().title = ''; });
+    map.on('mouseleave', l, () => { map.getCanvas().style.cursor = state.planning ? 'crosshair' : ''; map.getCanvas().title = ''; });
   }
 
   map.on('click', 'gp-routes-hit', (e) => {
-    if (poiAt(e.point)) return;
+    if (state.planning || poiAt(e.point)) return;
     const id = e.features?.[0]?.properties?.id;
     if (id) listeners.route.forEach((fn) => fn(id));
   });
-  map.on('mouseenter', 'gp-routes-hit', () => { map.getCanvas().style.cursor = 'pointer'; });
-  map.on('mouseleave', 'gp-routes-hit', () => { map.getCanvas().style.cursor = ''; });
+  map.on('mouseenter', 'gp-routes-hit', () => { if (!state.planning) map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'gp-routes-hit', () => { map.getCanvas().style.cursor = state.planning ? 'crosshair' : ''; });
 
   // Gipfel direkt auf der Karte antippen (Vektorkarte, Ebene "mountain_peak")
   map.on('click', (e) => {
-    if (state.flat) return;
+    if (state.flat || state.planning) return;
     const box = [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]];
     const hits = map.queryRenderedFeatures(box).filter((f) => f.sourceLayer === 'mountain_peak' && f.properties?.name);
     if (map.getLayer('gp-routes-hit') && map.queryRenderedFeatures(box, { layers: ['gp-routes-hit'] }).length) return;
@@ -419,6 +457,20 @@ export function createMapView(container) {
       });
     },
 
+    /** Planungsmodus: fn bekommt jeden angetippten Punkt; null beendet ihn */
+    setPlanning(fn) {
+      state.planning = fn;
+      closePoiCard();
+      map.getCanvas().style.cursor = fn ? 'crosshair' : '';
+      document.body.classList.toggle('planning', !!fn);
+    },
+
+    /** Linie der gerade geplanten Route (oder null) */
+    setPlanRoute(coords) {
+      planData = coords ? { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords.map((c) => [c[0], c[1]]) } } : EMPTY;
+      map.getSource('gp-plan')?.setData(planData);
+    },
+
     /** Webcams in der Nähe (anklickbar, Vorschaubild in der Infokarte) */
     showWebcams(cams) {
       camById.clear();
@@ -462,6 +514,9 @@ export function createMapView(container) {
       const r = state.routes.find((x) => x.id === id);
       if (r && fit) fitBounds(boundsOf(r.coords), { padding: padding(), duration: 900, pitch: map.getPitch() });
     },
+
+    /** Ausschnitt einpassen (ohne gemerkte Polsterung früherer Kamerafahrten) */
+    fitTo(bounds, opts) { fitBounds(bounds, opts); },
 
     /** Gewählte Route (oder alle) neu in den freien Kartenbereich einpassen */
     refit() {

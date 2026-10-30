@@ -525,3 +525,77 @@ ${pts}
 </gpx>
 `;
 }
+
+// ---------------------------------------------------------------------------
+// 4) Eigene Route: Punkte in der gewählten Reihenfolge über Wege verbinden
+// ---------------------------------------------------------------------------
+export const PLAN_COLOR = '#d6336c';
+
+/** Kurzer Titel aus den benannten Punkten, z. B. „P Hammersbach → Knorrhütte → Zugspitze“ */
+export function planTitle(points) {
+  const names = points.map((p) => p.name).filter(Boolean);
+  const uniq = names.filter((n, i) => i === 0 || n !== names[i - 1]);
+  if (!uniq.length) return 'Eigene Route';
+  if (uniq.length <= 3) return uniq.join(' → ');
+  return `${uniq[0]} → … → ${uniq.at(-1)}`;
+}
+
+/**
+ * Tour-Objekt für eine selbst geplante Route.
+ * Rundtour (Ende am Start) und Überschreitung (Ende woanders, nicht am höchsten
+ * Punkt) werden einfach gegangen; endet die Route oben, geht es denselben Weg zurück.
+ */
+export function customTour(geojson, points, peak, id) {
+  const first = points[0];
+  const base = analyzeRoute(geojson, { id, type: first.type || 'trailhead', name: first.name || null, lat: first.lat, lng: first.lng }, peak || points.at(-1));
+  const { coords, dist, length } = base;
+  const isLoop = points.length > 2 && haversine(coords[0], coords.at(-1)) < 300;
+  let top = 0;
+  coords.forEach((c, i) => { if ((c[2] ?? -1e9) > (coords[top][2] ?? -1e9)) top = i; });
+  const endsAtTop = !isLoop && (coords.at(-1)[2] ?? 0) >= (coords[top][2] ?? 0) - 40;
+  let { timeUp, timeDown } = base;
+  if (!endsAtTop) {
+    const a = ascentDescent(coords.slice(0, top + 1).map((c) => c[2]));
+    const b = ascentDescent(coords.slice(top).map((c) => c[2]));
+    timeUp = hikingTime(dist[top], a.up, a.down);
+    timeDown = hikingTime(length - dist[top], b.up, b.down);
+  }
+  const via = points.slice(1, -1).map((p) => p.name).filter(Boolean);
+  // Abstand zum Gipfel nur, wenn die Route ihn überhaupt ansteuern soll
+  const reachesPeak = peak && points.some((p) => haversine([p.lng, p.lat], [peak.lng, peak.lat]) < 200);
+  const gapToSummit = reachesPeak ? Math.min(...coords.map((c) => haversine(c, [peak.lng, peak.lat]))) : 0;
+  return {
+    ...base,
+    id,
+    kind: 'custom',
+    isLoop,
+    oneWay: !endsAtTop,
+    title: planTitle(points),
+    baseTitle: planTitle(points),
+    via,
+    waypoints: points.map((p) => ({ ...p })),
+    timeUp,
+    timeDown,
+    timeTotal: timeUp + timeDown,
+    color: PLAN_COLOR,
+    gapToSummit,
+    huts: [],
+  };
+}
+
+/** Route über alle Punkte berechnen (BRouter, eigenes Bergprofil) */
+export async function planRoute(points, peak, { signal, id = 'plan' } = {}) {
+  if (points.length < 2) throw new Error('Mindestens zwei Punkte nötig');
+  let geojson;
+  try {
+    geojson = await brouter(points, signal);
+  } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    // BRouter meldet z. B. „position not mapped“ oder „from-position not mapped“
+    if (/not mapped|no track found|target island/i.test(e.message)) {
+      throw new Error('Zwischen zwei Punkten gibt es keine Wegverbindung. Setze den Punkt näher an einen Weg.');
+    }
+    throw e;
+  }
+  return customTour(geojson, points, peak, id);
+}

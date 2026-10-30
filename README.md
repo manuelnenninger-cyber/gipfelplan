@@ -41,6 +41,8 @@ npm test
 - Hinweise auf Klettersteige, weglose Gipfelanstiege und Bergbahnen
 - GPX-Download fürs Handy oder die Uhr
 
+**Eigene Route planen**: Über „Eigene Route planen“ tippt man die Punkte der Tour nacheinander auf der Karte an – Parkplatz, Hütte, Gipfel oder einen beliebigen Punkt am Weg (der Gipfel geht auch per Knopf). Die App verbindet sie über vorhandene Wege (BRouter, gleiches Bergprofil wie bei den Vorschlägen) und zeigt sofort Strecke, Höhenmeter, Gehzeit und Schwierigkeit. Punkte lassen sich auf der Karte verschieben oder entfernen, „Zurück zum Start“ macht eine Rundtour daraus. „Route übernehmen“ legt sie in die Tourenliste – mit Höhenprofil, Details, Wetter und GPX-Export. Endet die Route oben, wird der Abstieg auf gleichem Weg gerechnet; Rundtouren und Überschreitungen einfach.
+
 **Tourenquellen**: Neben berechneten Wegen (direkt, Varianten, über Hütten, Rundtouren) übernimmt die App markierte, benannte Wanderwege aus OpenStreetMap. komoot, Outdooractive, Bergfex und hikr haben keine offene Schnittstelle; die App verlinkt dorthin. Touren von dort lassen sich als GPX exportieren und per Knopf oder Drag & Drop importieren – mit Höhenprofil, Gehzeit und Wetter. Fehlende Höhen in der Datei ergänzt das Höhenmodell.
 
 Die Karte startet in 2D; 3D-Gelände schaltet man bei Bedarf über „3D“ ein.

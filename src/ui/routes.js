@@ -13,7 +13,7 @@ const SAC_TEXT = {
   6: 'Schwieriges Alpinwandern',
 };
 const START_ICON = { parking: 'parking', trailhead: 'signpost', cablecar: 'cablecar', station: 'train', bus: 'bus' };
-const KIND_TAG = { loop: 'Rundtour', hut: 'Über Hütte', alt: 'Variante', marked: 'Markierter Weg', import: 'Importiert' };
+const KIND_TAG = { loop: 'Rundtour', hut: 'Über Hütte', alt: 'Variante', marked: 'Markierter Weg', import: 'Importiert', custom: 'Eigene Route' };
 
 // Suche nach weiteren Touren auf Tourenportalen (die keine offene Schnittstelle haben)
 const PORTALS = [
@@ -34,7 +34,7 @@ const FILTERS = [
   { id: 'short', label: 'Unter 6 h', test: (r) => r.timeTotal < 6 },
 ];
 
-export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles }) {
+export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan }) {
   let routes = [];
   let imported = [];
   let selected = null;
@@ -66,7 +66,10 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
         <input type="file" class="gpx-input" accept=".gpx,application/gpx+xml" multiple hidden />
       </section>`;
   }
+  const planButton = () => `<button class="btn btn-plan">${icon('route')}Eigene Route planen</button>`;
+
   function bindMore() {
+    el.querySelector('.btn-plan')?.addEventListener('click', () => onPlan?.());
     const btn = el.querySelector('.btn-import');
     const input = el.querySelector('.gpx-input');
     btn?.addEventListener('click', () => input.click());
@@ -76,8 +79,8 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
   function render() {
     if (!all().length) {
       if (pending) { loading('Berechne Touren …'); return; }
-      message('Keine Route gefunden', 'Im Umkreis gibt es keinen Startpunkt mit Wegverbindung zum Gipfel. Du kannst eine Tour als GPX-Datei importieren.');
-      el.insertAdjacentHTML('beforeend', moreTours());
+      message('Keine Route gefunden', 'Im Umkreis gibt es keinen Startpunkt mit Wegverbindung zum Gipfel. Plane eine eigene Route oder importiere eine GPX-Datei.');
+      el.insertAdjacentHTML('beforeend', planButton() + moreTours());
       bindMore();
       return;
     }
@@ -88,6 +91,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       .map((f) => `<button class="chip" data-filter="${f.id}" aria-pressed="${f.id === filter}">${f.label}<span>${f.n}</span></button>`)
       .join('');
     el.innerHTML = `
+      ${planButton()}
       <div class="chips" role="group" aria-label="Touren filtern">${chips}</div>
       <p class="list-note">${list.length === 1 ? '1 Tour' : `${list.length} Touren`}, sortiert nach Gesamtzeit${pending ? '<span class="pending"><span class="spinner"></span>weitere werden berechnet</span>' : ''}</p>
       ${list.length ? `<ul class="route-list">${list.map(row).join('')}</ul>` : '<p class="muted small empty-filter">Keine Tour passt zu diesem Filter.</p>'}
@@ -121,6 +125,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
 
   function subline(r) {
     if (r.kind === 'import') return `${r.isLoop ? 'Rundtour' : 'Strecke'} aus GPX-Datei`;
+    if (r.kind === 'custom') return r.isLoop ? 'Rundtour, selbst geplant' : r.oneWay ? 'Überschreitung, selbst geplant' : 'Selbst geplant, Abstieg auf gleichem Weg';
     if (r.kind === 'marked') return `${r.subtitle}${r.startEle != null ? `, ab ${fmtInt(r.startEle)} m` : ''}`;
     if (r.kind === 'loop') return r.connector ? `inkl. ${fmtKm(r.connector.length)} zurück zum Start` : 'Auf- und Abstieg auf verschiedenen Wegen';
     if (r.kind === 'hut') return `${r.subtitle}${r.startEle != null ? `, ab ${fmtInt(r.startEle)} m` : ''}`;
@@ -129,12 +134,12 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
 
   function row(r) {
     const isSel = r.id === selected;
-    const loop = r.kind === 'loop' || r.isLoop;
+    const loop = r.kind === 'loop' || r.isLoop || r.oneWay;
     const tag = KIND_TAG[r.kind];
     return `
       <li class="route ${isSel ? 'is-selected' : ''}" style="--rc:${r.color}">
         <button class="route-row" data-id="${escapeHtml(r.id)}" aria-expanded="${isSel}">
-          <span class="route-start">${icon(r.kind === 'import' ? 'download' : loop ? 'loop' : r.kind === 'hut' ? 'hut' : r.kind === 'marked' ? 'signpost' : START_ICON[r.start.type] || 'signpost')}</span>
+          <span class="route-start">${icon(r.kind === 'import' ? 'download' : r.kind === 'custom' ? 'route' : loop ? 'loop' : r.kind === 'hut' ? 'hut' : r.kind === 'marked' ? 'signpost' : START_ICON[r.start.type] || 'signpost')}</span>
           <span class="route-main">
             <span class="route-title">${escapeHtml(r.title)}</span>
             <span class="route-sub">${tag ? `<span class="tag">${tag}</span>` : ''}${escapeHtml(subline(r))}</span>
@@ -151,7 +156,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
   }
 
   function detail(r) {
-    const loop = r.kind === 'loop' || r.isLoop;
+    const loop = r.kind === 'loop' || r.isLoop || r.oneWay;
     const notes = [];
     if (r.sac >= 5) notes.push('Teile der Route sind anspruchsvolles bis schwieriges Alpinwandern (T5–T6): ausgesetzt, leichte Kletterstellen, oft weglos. Nur mit Erfahrung, Trittsicherheit und bei guten Verhältnissen.');
     else if (r.sac === 4) notes.push('Teile der Route sind Alpinwandern (T4): Hände nötig, teils ausgesetzt. Trittsicherheit und Schwindelfreiheit erforderlich.');
@@ -159,9 +164,10 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
     if (r.gapToSummit > 120) notes.push(`Der Weg endet etwa ${fmtInt(Math.round(r.gapToSummit / 10) * 10)} m vor dem Gipfelpunkt. Das letzte Stück kann weglos oder Kletterei sein.`);
     if (r.start.type === 'cablecar') notes.push('Start an einer Bergbahn: Betriebszeiten und Saison prüfen.');
     if (r.kind === 'import' && r.gapToSummit > 300) notes.push('Die importierte Tour führt nicht direkt über den gewählten Gipfel.');
+    if (r.kind === 'custom' && r.via?.length) notes.push(`Über ${r.via.join(', ')}.`);
     if (r.timeTotal > 8 && r.huts?.length) notes.push(`Lange Tour: Mit Übernachtung auf der ${r.huts[0].name} lässt sie sich auf zwei Tage verteilen.`);
 
-    const legs = loop ? `
+    const legs = r.kind === 'loop' ? `
         <dl class="legs">
           <div><dt>Aufstieg über</dt><dd>${escapeHtml(r.ascentVia)}</dd></div>
           <div><dt>Abstieg über</dt><dd>${escapeHtml(r.descentVia)}</dd></div>
@@ -185,7 +191,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
         ${r.kind === 'marked' ? `<p class="marked-info">${icon('signpost')}<span>${r.symbol ? `Markierung: ${escapeHtml(r.symbol)}. ` : ''}<a href="${r.link}" target="_blank" rel="noopener">Weg bei Waymarked Trails ansehen</a></span></p>` : ''}
         <div class="actions">
           <button class="btn btn-gpx">${icon('download')}GPX herunterladen</button>
-          ${r.kind === 'import' ? '<button class="btn btn-remove">Entfernen</button>' : ''}
+          ${r.kind === 'import' || r.kind === 'custom' ? '<button class="btn btn-remove">Entfernen</button>' : ''}
         </div>
       </div>`;
   }
@@ -221,6 +227,8 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       onShow?.(visible(), selected);
     },
     select(id) { if (id !== selected) select(id); },
+    /** Eigene Route oben einfügen und auswählen */
+    addCustom(tour) { this.addImport(tour); },
     /** Importierte Tour oben einfügen und auswählen */
     addImport(tour, forPeak) {
       if (forPeak && forPeak !== peak) { peak = forPeak; routes = []; imported = []; }

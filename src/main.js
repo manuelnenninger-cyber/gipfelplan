@@ -6,6 +6,7 @@ import { createRoutesPanel } from './ui/routes.js';
 import { createForecastPanel } from './ui/forecast.js';
 import { createWeatherBar } from './ui/weatherbar.js';
 import { createSheet } from './ui/sheet.js';
+import { createPlanner } from './ui/planner.js';
 import { loadSurroundings, demElevation } from './api/osm.js';
 import { suggestRoutes } from './api/routing.js';
 import { fetchForecast } from './api/weather.js';
@@ -71,6 +72,7 @@ const routesPanel = createRoutesPanel($('tab-routes'), {
   },
   onHover: (c) => view.setHover(c),
   onImportFiles: (files) => handleFiles(files),
+  onPlan: () => planner.open(),
   // Karte zeigt die gefilterten Touren
   onShow: (list, sel) => {
     view.setRoutes(list);
@@ -123,7 +125,7 @@ const sheet = createSheet(panel, {
   onSnap: (state, reason) => { if (state === 'peek' && reason === 'map') view.refit(); },
 });
 view.map.on('click', (e) => {
-  if (!sheet.isMobile || panel.hidden || sheet.state === 'peek') return;
+  if (!sheet.isMobile || panel.hidden || sheet.state === 'peek' || planner.active) return;
   const m = view.map;
   const box = [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]];
   const routeLayers = ['gp-routes-hit'].filter((l) => m.getLayer(l));
@@ -133,7 +135,22 @@ view.map.on('click', (e) => {
   setTimeout(() => { if (sheet.stamp === s0) sheet.snap('peek', { reason: 'map' }); }, 0);
 });
 view.map.on('dragstart', () => {
-  if (sheet.isMobile && !panel.hidden && sheet.state !== 'peek') sheet.snap('peek', { reason: 'pan' });
+  if (sheet.isMobile && !panel.hidden && sheet.state !== 'peek' && !planner.active) sheet.snap('peek', { reason: 'pan' });
+});
+
+// --- Eigene Route planen ---------------------------------------------------------
+const planner = createPlanner({
+  view,
+  getPeak: () => current.peak,
+  onOpen: () => { if (wbar.isOpen) toggleWeather(false); setTab('routes'); },
+  onAccept: (tour) => {
+    setTab('routes');
+    routesPanel.addCustom(tour);
+    if (sheet.isMobile) sheet.snap('half');
+    const [[w, s], [e, n]] = boundsOf(tour.coords);
+    overlay.setFocus({ w, s, e, n }); // feines Wetterraster für die neue Route
+    toast('Route übernommen');
+  },
 });
 
 function updatePeakHeader(peak) {
@@ -142,6 +159,7 @@ function updatePeakHeader(peak) {
 }
 
 $('panel-close').addEventListener('click', () => {
+  planner.close();
   current.ctrl?.abort();
   current = { ctrl: null, peak: null };
   panel.hidden = true;
@@ -155,6 +173,7 @@ $('panel-close').addEventListener('click', () => {
 let current = { ctrl: null, peak: null };
 
 async function selectPeak(input) {
+  planner.close();
   current.ctrl?.abort();
   const ctrl = new AbortController();
   const peak = { ...input };
@@ -277,6 +296,7 @@ $('toggle-contours').addEventListener('change', (e) => view.setContours(e.target
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     popover.hidden = true;
+    if (planner.active) planner.close();
     if (wbar.isOpen) toggleWeather(false);
   }
 });
