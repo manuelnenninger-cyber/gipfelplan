@@ -67,6 +67,8 @@ Zwei Raster werden ineinander geblendet: ein regionales (14 × 14 Punkte) für d
 
 **Hervorheben**: Knöpfe oben auf der Karte – „Hütten & Almen“, „Notbiwaks“, „Webcams“, jeweils mit Anzahl – heben eine Art hervor: farbiger Ring, größeres Symbol, Namen, schon ab weiter herausgezoomter Karte; alles andere wird blasser. Liegen nicht alle im Bild, zoomt die Karte so, dass man sie sieht. Nochmal tippen hebt die Auswahl auf. Die Knöpfe funktionieren auch ohne gewählten Gipfel: Dann lädt die App die gewählte Art für den sichtbaren Kartenausschnitt und beim Verschieben nach (ab mittlerer Zoomstufe; Hütten über Overpass mit Photon als Rückfall, Webcams über die Windy-Schnittstelle). Die Zahlen auf den Knöpfen gelten für den sichtbaren Ausschnitt.
 
+**Konto & gespeicherte Touren**: Ohne Anmeldung nutzbar. Erst beim Tippen auf „Speichern“ fragt die App nach der E-Mail-Adresse und schickt einen 6-stelligen Code bzw. Anmeldelink – kein Passwort, das Konto entsteht automatisch, man bleibt angemeldet. Oben rechts: „Meine Touren“ (öffnen, löschen) und Abmelden. Technik: Supabase (Projekt `gipfelplan`, Frankfurt) direkt per REST ohne zusätzliche Bibliothek; Tabelle und Zeilenrechte in `supabase/schema.sql`.
+
 **Hütten und Parkplätze** sind anklickbar und öffnen eine kleine Infokarte: Foto (aus OSM/Wikidata verlinkt, bei Hütten sonst ein Foto aus unmittelbarer Nähe von Wikimedia Commons), Öffnungszeit mit „geöffnet/derzeit geschlossen“ (aus der Saison in `opening_hours`), Betreiber, Schlafplätze, Gebühr und Stellplätze, Lage zum Gipfel (Luftlinie, Höhenmeter darunter), Knöpfe für Website, Anrufen und Navigation (Apple Karten bzw. Google Maps).
 
 ## Leistung
@@ -127,6 +129,13 @@ Alle Dienste sind ohne Schlüssel nutzbar, aber für faire, persönliche Nutzung
 Die App läuft als statische Seite auf [Vercel](https://vercel.com). `vercel.json` legt den Build fest (`npm run build` → `dist/`) und leitet die Proxy-Pfade für BRouter und Overpass an die echten Dienste weiter – dieselben Pfade wie im Dev-Server (`vite.config.js`), der Code muss also nichts unterscheiden.
 
 Einrichten (einmalig): Auf vercel.com mit GitHub anmelden → „Add New… → Project“ → Repository `gipfelplan` importieren → „Deploy“. Danach veröffentlicht jeder Push auf `main` automatisch eine neue Version; Pull Requests bekommen eine eigene Vorschau-Adresse.
+
+### Konten einrichten (Supabase)
+
+1. `supabase/schema.sql` im SQL-Editor ausführen (beim Projekt `gipfelplan` bereits geschehen).
+2. Authentication → URL Configuration: Site URL `https://gipfelplan.vercel.app`, Redirect URLs zusätzlich `http://localhost:5173/**`.
+3. Authentication → Email Templates → „Magic Link“: Vorlage mit `{{ .Token }}` (Code) und `{{ .ConfirmationURL }}` (Link).
+4. Für echte Nutzer eigenen Mailversand eintragen (Authentication → SMTP, z. B. Resend) – der eingebaute schickt nur wenige Mails pro Stunde.
 
 ### Webcams einrichten
 
