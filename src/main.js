@@ -8,6 +8,9 @@ import { createWeatherBar } from './ui/weatherbar.js';
 import { createSheet } from './ui/sheet.js';
 import { createPlanner } from './ui/planner.js';
 import { createExplore } from './ui/explore.js';
+import { createAccount } from './ui/account.js';
+import { consumeRedirect } from './api/auth.js';
+import { saveTour } from './api/tours.js';
 import { loadSurroundings, demElevation } from './api/osm.js';
 import { suggestRoutes } from './api/routing.js';
 import { fetchForecast } from './api/weather.js';
@@ -18,6 +21,8 @@ import { lookupRegion, avalancheReport, avaKey } from './api/avalanche.js';
 import { fetchWebcams } from './api/webcams.js';
 
 hydrateIcons();
+// Kommt jemand über den Anmeldelink aus der Mail? (vor dem Lesen des Gipfels aus der Adresse)
+const loginRedirect = consumeRedirect();
 
 const $ = (id) => document.getElementById(id);
 const view = createMapView('map');
@@ -74,6 +79,18 @@ const routesPanel = createRoutesPanel($('tab-routes'), {
   onHover: (c) => view.setHover(c),
   onImportFiles: (files) => handleFiles(files),
   onPlan: () => planner.open(),
+  onSave: async (tour) => {
+    const u = await account.requireLogin('Zum Speichern brauchst du ein kostenloses Konto – nur deine E-Mail, kein Passwort.');
+    if (!u) return null;
+    try {
+      const s = await saveTour(tour, current.peak);
+      toast('Gespeichert – du findest die Tour oben rechts unter „Meine Touren“.');
+      return s.savedId;
+    } catch (e) {
+      toast(e.message);
+      return null;
+    }
+  },
   // Karte zeigt die gefilterten Touren
   onShow: (list, sel) => {
     view.setRoutes(list);
@@ -393,6 +410,24 @@ window.addEventListener('drop', (e) => {
 });
 
 // --- Gipfel aus der Adresszeile (#lat,lng,Name) wiederherstellen ---------------------
+// --- Konto: Anmelden nur bei Bedarf, gespeicherte Touren öffnen ---------------------
+const account = createAccount({ onOpenTour: openSavedTour, toast });
+if (loginRedirect?.ok) setTimeout(() => toast('Du bist angemeldet.'), 400);
+else if (loginRedirect?.error) setTimeout(() => toast(`Anmeldung fehlgeschlagen: ${loginRedirect.error}`), 400);
+
+function openSavedTour(t) {
+  const p = t.peak;
+  const same = current.peak && p && Math.abs(current.peak.lat - p.lat) < 1e-4 && Math.abs(current.peak.lng - p.lng) < 1e-4;
+  if (p && !same) selectPeak({ name: p.name, lat: p.lat, lng: p.lng, ele: p.ele ?? null, region: p.region || '', osmType: null, osmId: null });
+  else if (!p && !current.peak) {
+    const top = t.coords.reduce((a, c) => ((c[2] ?? -1e9) > (a[2] ?? -1e9) ? c : a));
+    selectPeak({ name: t.title, lat: top[1], lng: top[0], ele: top[2] != null ? Math.round(top[2]) : null, region: '', osmType: null, osmId: null });
+  }
+  setTab('routes');
+  routesPanel.addCustom({ ...t }, current.peak);
+  if (sheet.isMobile) sheet.snap('half');
+}
+
 const m = location.hash.match(/^#(-?\d+\.\d+),(-?\d+\.\d+),(.+)$/);
 if (m) {
   view.map.once('load', () => selectPeak({

@@ -828,3 +828,66 @@ body.wx-mode .poi-filter { display: none; }
   content: ""; display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px;
   border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: spin 0.8s linear infinite;
 }
+
+/* Konto */
+.ctrl-account .acct-avatar {
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: #fff; font: 700 13px var(--font);
+}
+.acct-backdrop {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px;
+  background: rgba(10, 14, 24, 0.38); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  animation: fade-in 0.2s ease;
+}
+@keyframes fade-in { from { opacity: 0; } }
+.acct {
+  width: min(400px, 100%); max-height: min(640px, calc(100dvh - 32px)); overflow: auto;
+  padding: 18px 20px 16px; border-radius: 20px; background: var(--glass-solid); color: var(--text);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column; gap: 12px;
+  animation: panel-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.acct-head { display: flex; align-items: center; justify-content: space-between; }
+.acct-head h2 { margin: 0; font: 700 21px/1.2 var(--font-display); letter-spacing: -0.015em; }
+.acct-lead { margin: 0; font-size: 14px; line-height: 1.45; color: var(--text-2); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acct-lead b { color: var(--text); }
+.acct-form { display: flex; flex-direction: column; gap: 10px; }
+.acct-field {
+  display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 12px;
+  border-radius: 12px; background: var(--fill); color: var(--text-2);
+}
+.acct-field .icon { width: 18px; height: 18px; flex: none; }
+.acct-field input, .acct-code {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: 16px var(--font);
+}
+.acct-code {
+  height: 54px; border-radius: 12px; background: var(--fill); text-align: center;
+  font: 600 26px var(--font-display); letter-spacing: 0.3em; font-variant-numeric: tabular-nums;
+}
+.acct-field:focus-within, .acct-code:focus { box-shadow: 0 0 0 2px var(--accent); }
+.acct-go { height: 46px; font-size: 15px; gap: 8px; }
+.acct-go .spinner { border-color: rgba(255, 255, 255, 0.35); border-top-color: #fff; }
+.acct-error { margin: 0; font-size: 13px; color: var(--poor); }
+.acct-fine { margin: 0; font-size: 12.5px; color: var(--text-3); line-height: 1.45; }
+.acct-link {
+  display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: none;
+  color: var(--accent); font: 500 13px var(--font); cursor: pointer;
+}
+.acct-link .icon { width: 15px; height: 15px; }
+.acct-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.acct-tour {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border: 0;
+  border-radius: 12px; background: var(--fill); color: var(--text); text-align: left; cursor: pointer;
+}
+.acct-tour:hover { background: var(--fill-2); }
+.acct-tour-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.acct-tour-main b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-tour-main small { font-size: 12px; color: var(--text-2); }
+.acct-stats { font-variant-numeric: tabular-nums; }
+.acct-del { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: var(--text-2); flex: none; }
+.acct-del:hover { background: rgba(229, 72, 77, 0.15); color: var(--poor); }
+.acct-del .icon { width: 16px; height: 16px; }
+.acct-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 4px; border-top: 1px solid var(--hair); }
+.acct-mail { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.acct-mail .icon { width: 15px; height: 15px; flex: none; }
+.btn-save.is-saved { background: var(--accent); color: #fff; opacity: 1; }
+.route-title .saved-mark { width: 13px; height: 13px; color: var(--accent); margin-right: 4px; vertical-align: -1px; }

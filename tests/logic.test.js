@@ -447,3 +447,35 @@ test('Hütten, Almen und Notbiwaks erkennen', () => {
   assert.equal(poiLabel('bivouac', { shelter_type: 'basic_hut' }), 'Notunterkunft');
   assert.equal(poiLabel('alm', {}), 'Alm / Einkehr');
 });
+
+import { toRow, fromRow } from '../src/api/tours.js';
+import { authMessage } from '../src/api/auth.js';
+
+test('Touren speichern: Zeile hin und zurück', () => {
+  const tour = {
+    id: 'custom:1', kind: 'custom', title: 'P → Hütte → Gipfel', color: '#d6336c',
+    coords: [[11.123456789, 47.1, 1000.4], [11.2, 47.2, null]], length: 5000, up: 900, down: 10,
+    timeUp: 3, timeDown: 2, timeTotal: 5, sac: 3, isLoop: false, oneWay: false,
+    waypoints: [{ lat: 47.1, lng: 11.1, name: 'P', type: 'parking' }],
+    start: { id: 'x', type: 'parking', name: 'P', lat: 47.1, lng: 11.1, extra: 'weg' },
+    dist: [0, 5000], huts: [],
+  };
+  const row = toRow(tour, { name: 'Gipfel', lat: 47.2, lng: 11.2, ele: 2000 });
+  assert.deepEqual(row.coords[0], [11.12346, 47.1, 1000]);
+  assert.equal(row.coords[1][2], null);
+  assert.equal(row.stats.start.extra, undefined);
+  assert.equal(row.dist, undefined);
+  const back = fromRow({ ...row, id: 'abc', created_at: '2026-10-31T18:00:00Z' });
+  assert.equal(back.id, 'saved:abc');
+  assert.equal(back.savedId, 'abc');
+  assert.equal(back.title, tour.title);
+  assert.equal(back.sac, 3);
+  assert.equal(back.peak.name, 'Gipfel');
+  assert.equal(back.dist.length, 2);
+  assert.equal(back.waypoints[0].name, 'P');
+});
+
+test('Anmeldung: verständliche Fehler', () => {
+  assert.match(authMessage({ msg: 'Token has expired or is invalid' }, 403), /falsch oder abgelaufen/);
+  assert.match(authMessage({ msg: 'For security purposes, you can only request this after 42 seconds.' }, 429), /Zu viele/);
+});

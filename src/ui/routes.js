@@ -34,7 +34,8 @@ const FILTERS = [
   { id: 'short', label: 'Unter 6 h', test: (r) => r.timeTotal < 6 },
 ];
 
-export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan }) {
+export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave }) {
+  const saved = new Map(); // Tour-ID → ID in der Datenbank
   let routes = [];
   let imported = [];
   let selected = null;
@@ -113,6 +114,14 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       const prof = el.querySelector('.profile');
       if (r && prof) renderProfile(prof, r, { onHover });
       el.querySelector('.btn-gpx')?.addEventListener('click', () => downloadGPX(r));
+      el.querySelector('.btn-save:not(.is-saved)')?.addEventListener('click', async (e) => {
+        const b = e.currentTarget;
+        b.disabled = true;
+        b.innerHTML = '<span class="spinner"></span>Speichern …';
+        const savedId = await onSave?.(r).catch(() => null);
+        if (savedId) saved.set(r.id, savedId);
+        render();
+      });
       el.querySelector('.btn-remove')?.addEventListener('click', () => {
         imported = imported.filter((x) => x.id !== r.id);
         selected = null;
@@ -141,7 +150,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
         <button class="route-row" data-id="${escapeHtml(r.id)}" aria-expanded="${isSel}">
           <span class="route-start">${icon(r.kind === 'import' ? 'download' : r.kind === 'custom' ? 'route' : loop ? 'loop' : r.kind === 'hut' ? 'hut' : r.kind === 'marked' ? 'signpost' : START_ICON[r.start.type] || 'signpost')}</span>
           <span class="route-main">
-            <span class="route-title">${escapeHtml(r.title)}</span>
+            <span class="route-title">${r.savedId || saved.has(r.id) ? icon('bookmarkFill', 'saved-mark') : ''}${escapeHtml(r.title)}</span>
             <span class="route-sub">${tag ? `<span class="tag">${tag}</span>` : ''}${escapeHtml(subline(r))}</span>
             <span class="route-stats">
               ${loop
@@ -190,7 +199,10 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
         ${notes.map((n) => `<p class="note">${icon('alert')}<span>${escapeHtml(n)}</span></p>`).join('')}
         ${r.kind === 'marked' ? `<p class="marked-info">${icon('signpost')}<span>${r.symbol ? `Markierung: ${escapeHtml(r.symbol)}. ` : ''}<a href="${r.link}" target="_blank" rel="noopener">Weg bei Waymarked Trails ansehen</a></span></p>` : ''}
         <div class="actions">
-          <button class="btn btn-gpx">${icon('download')}GPX herunterladen</button>
+          ${r.savedId || saved.has(r.id)
+            ? `<button class="btn btn-save is-saved" disabled>${icon('bookmarkFill')}Gespeichert</button>`
+            : `<button class="btn btn-save">${icon('bookmark')}Speichern</button>`}
+          <button class="btn btn-gpx">${icon('download')}GPX</button>
           ${r.kind === 'import' || r.kind === 'custom' ? '<button class="btn btn-remove">Entfernen</button>' : ''}
         </div>
       </div>`;
@@ -227,8 +239,11 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       onShow?.(visible(), selected);
     },
     select(id) { if (id !== selected) select(id); },
-    /** Eigene Route oben einfügen und auswählen */
-    addCustom(tour) { this.addImport(tour); },
+    /** Eigene oder gespeicherte Route oben einfügen und auswählen */
+    addCustom(tour, forPeak) {
+      if (imported.some((x) => x.id === tour.id)) { select(tour.id); return; }
+      this.addImport(tour, forPeak);
+    },
     /** Importierte Tour oben einfügen und auswählen */
     addImport(tour, forPeak) {
       if (forPeak && forPeak !== peak) { peak = forPeak; routes = []; imported = []; }

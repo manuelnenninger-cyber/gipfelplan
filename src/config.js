@@ -61,3 +61,11 @@ export const TERRAIN_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terr
 export const TRAILS_TILES = 'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png';
 
 export const ROUTE_COLORS = ['#2f4fd6', '#e0563b', '#13a37f', '#b04fd1', '#d9930d', '#1c8fc4'];
+
+// Konten und gespeicherte Touren (Supabase). Beide Werte sind öffentlich und dürfen im
+// Browser stehen – geschützt werden die Daten über Zeilenrechte in der Datenbank
+// (siehe supabase/schema.sql). Leer = Speichern ist ausgeschaltet.
+export const ACCOUNTS = {
+  url: import.meta.env?.VITE_SUPABASE_URL || '',
+  anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || '',
+};
