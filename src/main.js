@@ -7,6 +7,7 @@ import { createForecastPanel } from './ui/forecast.js';
 import { createWeatherBar } from './ui/weatherbar.js';
 import { createSheet } from './ui/sheet.js';
 import { createPlanner } from './ui/planner.js';
+import { createExplore } from './ui/explore.js';
 import { loadSurroundings, demElevation } from './api/osm.js';
 import { suggestRoutes } from './api/routing.js';
 import { fetchForecast } from './api/weather.js';
@@ -139,25 +140,41 @@ view.map.on('dragstart', () => {
 });
 
 // --- Orte hervorheben (Hütten & Almen, Notbiwaks, Webcams) -------------------------
+// Ohne Gipfel lädt die App die gewählte Art für den sichtbaren Ausschnitt (freies Erkunden).
 const poiFilter = $('poi-filter');
 let highlight = null;
+let zoomHinted = false;
+const exploreState = {};
+const explore = createExplore({
+  view,
+  onState: ({ cat, status, message }) => {
+    exploreState[cat] = status;
+    if (status === 'zoom' && !zoomHinted) { zoomHinted = true; toast('Zum Anzeigen etwas weiter hineinzoomen.'); }
+    if (status === 'nokey') toast('Webcams sind auf diesem Server nicht eingerichtet.');
+    if (status === 'error') toast(`Konnte nicht laden: ${message}`);
+    updatePoiFilter();
+  },
+});
 function updatePoiFilter() {
+  // Zahlen beziehen sich auf den sichtbaren Ausschnitt
   const counts = view.poiCounts();
-  poiFilter.hidden = !current.peak;
   poiFilter.querySelectorAll('button').forEach((b) => {
-    const n = counts[b.dataset.cat] ?? 0;
-    b.querySelector('.pf-n').textContent = n;
-    b.disabled = n === 0 && highlight !== b.dataset.cat;
+    const cat = b.dataset.cat;
+    const loading = highlight === cat && exploreState[cat] === 'loading';
+    b.classList.toggle('is-loading', loading);
+    b.querySelector('.pf-n').textContent = loading || !counts[cat] ? '' : counts[cat];
   });
 }
+let countTimer = 0;
+view.map.on('moveend', () => { clearTimeout(countTimer); countTimer = setTimeout(updatePoiFilter, 150); });
 function setHighlight(cat) {
   highlight = cat;
   poiFilter.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.cat === cat));
   view.setHighlight(cat);
-  if (cat) {
-    view.showAll(cat);
-    if (sheet.isMobile && !panel.hidden) sheet.snap('peek', { reason: 'filter' });
-  }
+  if (cat && current.peak) view.showAll(cat);
+  if (cat && sheet.isMobile && !panel.hidden) sheet.snap('peek', { reason: 'filter' });
+  zoomHinted = false;
+  explore.setActive(cat);
   updatePoiFilter();
 }
 poiFilter.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => setHighlight(highlight === b.dataset.cat ? null : b.dataset.cat)));
@@ -184,8 +201,7 @@ function updatePeakHeader(peak) {
 
 $('panel-close').addEventListener('click', () => {
   planner.close();
-  setHighlight(null);
-  poiFilter.hidden = true;
+  updatePoiFilter();
   current.ctrl?.abort();
   current = { ctrl: null, peak: null };
   panel.hidden = true;

@@ -824,3 +824,7 @@ body.wx-mode .poi-filter { display: none; }
   body:has(#panel[hidden]) .poi-filter { left: 12px; }
   .poi-filter button { height: 34px; font-size: 13px; }
 }
+.poi-filter button.is-loading .pf-n::after {
+  content: ""; display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px;
+  border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: spin 0.8s linear infinite;
+}

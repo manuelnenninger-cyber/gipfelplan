@@ -88,6 +88,39 @@ export function createMapView(container) {
   let hutData = EMPTY;
   const poiById = new Map();
   const camById = new Map();
+  // Orte rund um den Gipfel (inkl. Parkplätze) und frei erkundete Orte, zusammen angezeigt
+  let peakPlaces = [];
+  const explorePlaces = new Map();
+  let peakCams = [];
+  const exploreCams = new Map();
+  function renderPOIs() {
+    poiById.clear();
+    explorePlaces.forEach((p, id) => poiById.set(id, p));
+    peakPlaces.forEach((p) => poiById.set(p.id, p));
+    hutData = {
+      type: 'FeatureCollection',
+      features: [...poiById.values()].map((p) => ({
+        type: 'Feature',
+        properties: { id: p.id, kind: p.type, name: p.name || null, title: p.name ? `${typeLabel(p.type)}: ${p.name}` : typeLabel(p.type) },
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+      })),
+    };
+    map.getSource('gp-huts')?.setData(hutData);
+  }
+  function renderCams() {
+    camById.clear();
+    exploreCams.forEach((c, id) => camById.set(id, c));
+    peakCams.forEach((c) => camById.set(c.id, c));
+    camData = {
+      type: 'FeatureCollection',
+      features: [...camById.values()].map((c) => ({
+        type: 'Feature',
+        properties: { id: c.id, title: `Webcam: ${c.title}` },
+        geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
+      })),
+    };
+    map.getSource('gp-webcams')?.setData(camData);
+  }
   let planData = EMPTY;
   let camData = EMPTY;
 
@@ -580,20 +613,23 @@ export function createMapView(container) {
     },
 
     /** Anzahl je Art (für die Auswahlknöpfe) */
-    poiCounts() {
-      const places = [...poiById.values()];
+    poiCounts({ inView = true } = {}) {
+      const b = map.getBounds();
+      const vis = (x) => !inView || b.contains([x.lng, x.lat]);
+      const places = [...poiById.values()].filter(vis);
       return {
         huts: places.filter((p) => p.type === 'hut' || p.type === 'alm').length,
         bivouacs: places.filter((p) => p.type === 'bivouac').length,
-        webcams: camById.size,
+        webcams: [...camById.values()].filter(vis).length,
       };
     },
 
     /** Alle Orte einer Art ins Bild holen, falls nicht schon alle sichtbar sind */
     showAll(cat) {
+      // nur die Orte rund um den gewählten Gipfel (nicht alles bisher Erkundete)
       const pts = cat === 'webcams'
-        ? [...camById.values()].map((c) => [c.lng, c.lat])
-        : [...poiById.values()].filter((p) => HIGHLIGHT[cat]?.kinds.includes(p.type)).map((p) => [p.lng, p.lat]);
+        ? peakCams.map((c) => [c.lng, c.lat])
+        : peakPlaces.filter((p) => HIGHLIGHT[cat]?.kinds.includes(p.type)).map((p) => [p.lng, p.lat]);
       if (!pts.length) return;
       const b = map.getBounds();
       if (pts.every(([lng, lat]) => b.contains([lng, lat]))) return;
@@ -616,33 +652,27 @@ export function createMapView(container) {
 
     /** Webcams in der Nähe (anklickbar, Vorschaubild in der Infokarte) */
     showWebcams(cams) {
-      camById.clear();
-      cams.forEach((c) => camById.set(c.id, c));
-      camData = {
-        type: 'FeatureCollection',
-        features: cams.map((c) => ({
-          type: 'Feature',
-          properties: { id: c.id, title: `Webcam: ${c.title}` },
-          geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
-        })),
-      };
-      map.getSource('gp-webcams')?.setData(camData);
+      peakCams = cams;
+      renderCams();
+    },
+
+    /** Webcams aus dem freien Erkunden ergänzen (bleiben beim Gipfelwechsel stehen) */
+    addExploreWebcams(cams) {
+      cams.forEach((c) => exploreCams.set(c.id, c));
+      renderCams();
     },
 
     /** Hütten und Parkplätze anzeigen (anklickbar) */
     showPOIs(places) {
       closePoiCard();
-      poiById.clear();
-      places.forEach((p) => poiById.set(p.id, p));
-      hutData = {
-        type: 'FeatureCollection',
-        features: places.map((p) => ({
-          type: 'Feature',
-          properties: { id: p.id, kind: p.type, name: p.name || null, title: p.name ? `${typeLabel(p.type)}: ${p.name}` : typeLabel(p.type) },
-          geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-        })),
-      };
-      map.getSource('gp-huts')?.setData(hutData);
+      peakPlaces = places;
+      renderPOIs();
+    },
+
+    /** Hütten, Almen, Biwaks aus dem freien Erkunden ergänzen */
+    addExplorePOIs(places) {
+      places.forEach((p) => explorePlaces.set(p.id, p));
+      renderPOIs();
     },
 
     setRoutes(routes) {
