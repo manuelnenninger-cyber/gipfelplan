@@ -57,7 +57,7 @@ async function toggleWeather(on, date, { layer } = {}) {
   } else if (wbar.isOpen) {
     wbar.close();
     if (savedCamera) {
-      m.easeTo({ ...savedCamera, pitch: view.state.terrain3d ? savedCamera.pitch : 0, duration: 1000 });
+      view.restoreCamera(savedCamera);
       savedCamera = null;
     }
   }

@@ -434,6 +434,55 @@ export function createMapView(container) {
     map.fitBounds(bounds, opts);
   }
 
+  // --- 3D-Gelände sicher einschalten -------------------------------------------------
+  // Beim Einschalten kennt MapLibre die Geländehöhe noch nicht (Kacheln laden erst) und
+  // rechnet mit 0 m. Nah herangezoomt steht die Kamera dann in ca. 800 m Höhe – mitten
+  // im Berg: weißes oder verzerrtes Bild, bis man herauszoomt. Deshalb kurz auf einen
+  // sicheren Abstand gehen, Gelände laden und erst dann kippen und zurückzoomen.
+  const SAFE_ZOOM = 12.3;
+  let terrainSeq = 0;
+  const easeAsync = (opts) => new Promise((res) => {
+    const t = setTimeout(res, (opts.duration ?? 500) + 400);
+    map.once('moveend', () => { clearTimeout(t); res(); });
+    map.easeTo(opts);
+  });
+  function terrainReady(center, timeout = 2500) {
+    return new Promise((res) => {
+      let sawTile = false;
+      const done = () => { clearTimeout(t); map.off('sourcedata', check); res(); };
+      const check = (e) => {
+        if (e?.sourceId === 'gp-dem' && e.tile) sawTile = true;
+        const ele = map.queryTerrainElevation?.(center);
+        if ((ele != null && Math.abs(ele) > 1) || (sawTile && map.isSourceLoaded('gp-dem'))) done();
+      };
+      const t = setTimeout(done, timeout);
+      map.on('sourcedata', check);
+    });
+  }
+  async function enableTerrain(target) {
+    const seq = ++terrainSeq;
+    const goal = {
+      center: target?.center ?? map.getCenter(),
+      zoom: target?.zoom ?? map.getZoom(),
+      bearing: target?.bearing ?? map.getBearing(),
+      pitch: target?.pitch ?? PITCH_3D,
+    };
+    map.setPixelRatio(PIXEL_RATIO_3D);
+    if (map.getZoom() > SAFE_ZOOM && !map.getTerrain()) await easeAsync({ zoom: SAFE_ZOOM, duration: 350 });
+    if (seq !== terrainSeq) return;
+    if (!map.getTerrain()) {
+      // Bewegt jemand anderes die Karte inzwischen (z. B. Flug zu einem neuen Gipfel), nicht dazwischenfahren
+      let movedByOthers = false;
+      const onMove = () => { movedByOthers = true; };
+      map.setTerrain(TERRAIN);
+      map.on('movestart', onMove);
+      await terrainReady(goal.center);
+      map.off('movestart', onMove);
+      if (seq !== terrainSeq || !map.getTerrain() || movedByOthers) return;
+    }
+    map.easeTo({ ...goal, duration: 1000 });
+  }
+
   let hoverRaf = 0;
   let hoverNext = null;
 
@@ -467,10 +516,9 @@ export function createMapView(container) {
       state.terrain3d = on;
       if (state.flat) return;
       if (on) {
-        map.setPixelRatio(PIXEL_RATIO_3D);
-        map.setTerrain(TERRAIN);
-        map.easeTo({ pitch: PITCH_3D, duration: 900 });
+        enableTerrain();
       } else {
+        terrainSeq++;
         map.setTerrain(null);
         map.setPixelRatio(PIXEL_RATIO_2D);
         map.easeTo({ pitch: 0, bearing: 0, duration: 700 });
@@ -495,12 +543,14 @@ export function createMapView(container) {
         map.dragRotate.enable();
         map.touchZoomRotate.enableRotation();
         map.touchPitch.enable();
-        if (state.terrain3d) {
-          map.setPixelRatio(PIXEL_RATIO_3D);
-          map.setTerrain(TERRAIN);
-          map.easeTo({ pitch: PITCH_3D, duration: 700 });
-        }
+        if (state.terrain3d) enableTerrain();
       }
+    },
+
+    /** Zurück zu einem gemerkten Ausschnitt (nach der Wetterkarte), in 3D sicher über dem Gelände */
+    restoreCamera(cam) {
+      if (state.terrain3d && !state.flat) enableTerrain({ ...cam, pitch: cam.pitch || PITCH_3D });
+      else map.easeTo({ ...cam, pitch: 0, duration: 1000 });
     },
 
     showPeak(peak) {
