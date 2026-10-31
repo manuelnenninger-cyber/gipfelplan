@@ -66,6 +66,6 @@ export const ROUTE_COLORS = ['#2f4fd6', '#e0563b', '#13a37f', '#b04fd1', '#d9930
 // Browser stehen – geschützt werden die Daten über Zeilenrechte in der Datenbank
 // (siehe supabase/schema.sql). Leer = Speichern ist ausgeschaltet.
 export const ACCOUNTS = {
-  url: import.meta.env?.VITE_SUPABASE_URL || '',
-  anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || '',
+  url: import.meta.env?.VITE_SUPABASE_URL || 'https://qtcphhszgystcjkzzvez.supabase.co',
+  anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_BuACRL-LNSZ5JTqG7vkmig_HOwUrrEK',
 };
