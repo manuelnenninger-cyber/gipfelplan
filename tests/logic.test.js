@@ -429,3 +429,21 @@ test('Eigene Route: Titel, Rundtour, Überschreitung', () => {
   assert.equal(trav.oneWay, true);
   assert.equal(trav.title, 'P → Gipfel → Tal');
 });
+
+import { classify } from '../src/api/osm.js';
+import { poiLabel } from '../src/api/poi.js';
+
+test('Hütten, Almen und Notbiwaks erkennen', () => {
+  assert.equal(classify({ tourism: 'alpine_hut' }), 'hut');
+  assert.equal(classify({ tourism: 'wilderness_hut' }), 'bivouac');
+  assert.equal(classify({ amenity: 'shelter', shelter_type: 'basic_hut' }), 'bivouac');
+  assert.equal(classify({ amenity: 'shelter', name: 'Biwak am Grat' }), 'bivouac');
+  assert.equal(classify({ amenity: 'shelter', shelter_type: 'public_transport' }), null);
+  assert.equal(classify({ amenity: 'shelter', shelter_type: 'picnic_shelter', name: 'Rastplatz' }), null);
+  assert.equal(classify({ amenity: 'restaurant', name: 'Ehrwalder Alm' }), 'alm');
+  assert.equal(classify({ amenity: 'restaurant', name: 'Pizzeria Roma' }), null);
+  assert.equal(poiLabel('bivouac', { name: 'Biwakschachtel Hochwanner' }), 'Biwak');
+  assert.equal(poiLabel('bivouac', { tourism: 'wilderness_hut' }), 'Unbewirtschaftete Hütte');
+  assert.equal(poiLabel('bivouac', { shelter_type: 'basic_hut' }), 'Notunterkunft');
+  assert.equal(poiLabel('alm', {}), 'Alm / Einkehr');
+});

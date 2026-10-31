@@ -43,6 +43,8 @@ function omtSource(map) {
   return 'gp-omt';
 }
 
+const POI_FILL = { 'gp-hut': '#9a4f1c', 'gp-alm': '#4d7c0f', 'gp-bivouac': '#e8590c', 'gp-parking': '#2463d6' };
+
 /** Kartensymbole (scharf auf Retina). Auch für „styleimagemissing“ nach Stilwechseln. */
 export function addMapIcon(map, id) {
   if (map.hasImage(id)) return true;
@@ -73,23 +75,33 @@ export function addMapIcon(map, id) {
     x.beginPath(); x.arc(13 * r, 13.7 * r, 3 * r, 0, Math.PI * 2); x.fill();          // Objektiv
     x.fillStyle = '#7fd3ff';
     x.beginPath(); x.arc(13 * r, 13.7 * r, 1.6 * r, 0, Math.PI * 2); x.fill();
-  } else if (id === 'gp-hut' || id === 'gp-parking') {
-    // abgerundetes Quadrat mit weißem Rand, darin Haus bzw. „P“
+  } else if (POI_FILL[id]) {
+    // abgerundetes Quadrat mit weißem Rand, darin Haus, Zelt bzw. „P“
+    const fill = POI_FILL[id];
     const s = 26 * r;
     c.width = s; c.height = s;
     x.beginPath();
     x.roundRect(2 * r, 2 * r, s - 4 * r, s - 4 * r, 6 * r);
-    x.fillStyle = id === 'gp-hut' ? '#9a4f1c' : '#2463d6';
+    x.fillStyle = fill;
     x.fill();
     x.lineWidth = 2 * r; x.strokeStyle = '#ffffff'; x.stroke();
     x.fillStyle = '#ffffff';
-    if (id === 'gp-hut') {
+    if (id === 'gp-hut' || id === 'gp-alm') {
       x.beginPath();
       x.moveTo(13 * r, 6.5 * r); x.lineTo(20.5 * r, 13 * r); x.lineTo(18 * r, 13 * r); x.lineTo(18 * r, 19.5 * r);
       x.lineTo(8 * r, 19.5 * r); x.lineTo(8 * r, 13 * r); x.lineTo(5.5 * r, 13 * r); x.closePath();
       x.fill();
-      x.fillStyle = '#9a4f1c';
+      x.fillStyle = fill;
       x.fillRect(11.6 * r, 15 * r, 2.8 * r, 4.5 * r);
+    } else if (id === 'gp-bivouac') {
+      // Biwakschachtel: Dreieck mit Eingang
+      x.beginPath();
+      x.moveTo(13 * r, 6 * r); x.lineTo(20.5 * r, 19.5 * r); x.lineTo(5.5 * r, 19.5 * r); x.closePath();
+      x.fill();
+      x.fillStyle = fill;
+      x.beginPath();
+      x.moveTo(13 * r, 12.5 * r); x.lineTo(15.6 * r, 19.5 * r); x.lineTo(10.4 * r, 19.5 * r); x.closePath();
+      x.fill();
     } else {
       x.font = `700 ${15 * r}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
       x.textAlign = 'center'; x.textBaseline = 'middle';

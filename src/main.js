@@ -138,6 +138,30 @@ view.map.on('dragstart', () => {
   if (sheet.isMobile && !panel.hidden && sheet.state !== 'peek' && !planner.active) sheet.snap('peek', { reason: 'pan' });
 });
 
+// --- Orte hervorheben (Hütten & Almen, Notbiwaks, Webcams) -------------------------
+const poiFilter = $('poi-filter');
+let highlight = null;
+function updatePoiFilter() {
+  const counts = view.poiCounts();
+  poiFilter.hidden = !current.peak;
+  poiFilter.querySelectorAll('button').forEach((b) => {
+    const n = counts[b.dataset.cat] ?? 0;
+    b.querySelector('.pf-n').textContent = n;
+    b.disabled = n === 0 && highlight !== b.dataset.cat;
+  });
+}
+function setHighlight(cat) {
+  highlight = cat;
+  poiFilter.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.cat === cat));
+  view.setHighlight(cat);
+  if (cat) {
+    view.showAll(cat);
+    if (sheet.isMobile && !panel.hidden) sheet.snap('peek', { reason: 'filter' });
+  }
+  updatePoiFilter();
+}
+poiFilter.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => setHighlight(highlight === b.dataset.cat ? null : b.dataset.cat)));
+
 // --- Eigene Route planen ---------------------------------------------------------
 const planner = createPlanner({
   view,
@@ -160,6 +184,8 @@ function updatePeakHeader(peak) {
 
 $('panel-close').addEventListener('click', () => {
   planner.close();
+  setHighlight(null);
+  poiFilter.hidden = true;
   current.ctrl?.abort();
   current = { ctrl: null, peak: null };
   panel.hidden = true;
@@ -192,6 +218,7 @@ async function selectPeak(input) {
   history.replaceState(null, '', `#${peak.lat.toFixed(5)},${peak.lng.toFixed(5)},${encodeURIComponent(peak.name)}`);
 
   view.clear();
+  updatePoiFilter();
   view.showPeak(peak);
   overlay.setFocus({ w: peak.lng, e: peak.lng, s: peak.lat, n: peak.lat }); // feines Wetterraster um den Gipfel
   view.flyToPeak(peak);
@@ -200,7 +227,7 @@ async function selectPeak(input) {
   loadAvalanche(peak, stale);
   // Webcams im Umkreis (fehlt der Schlüssel, bleibt die Ebene einfach leer)
   fetchWebcams(peak.lat, peak.lng, { signal })
-    .then((d) => { if (!stale() && d) view.showWebcams(d.cams); })
+    .then((d) => { if (!stale() && d) { view.showWebcams(d.cams); updatePoiFilter(); } })
     .catch((e) => { if (e.name !== 'AbortError') console.info('Webcams nicht geladen:', e.message); });
 
   // Höhe aus dem Höhenmodell (schnell) für das Wetter, OSM-Höhe folgt mit den Startpunkten
@@ -229,7 +256,8 @@ async function selectPeak(input) {
     return;
   }
 
-  view.showPOIs(places.filter((p) => p.type === 'hut' || p.type === 'parking'));
+  view.showPOIs(places.filter((p) => ['hut', 'alm', 'bivouac', 'parking'].includes(p.type)));
+  updatePoiFilter();
   routesPanel.loading('Berechne Routen …');
   let shown = false;
   try {

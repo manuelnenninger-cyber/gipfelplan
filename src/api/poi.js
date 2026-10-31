@@ -36,22 +36,39 @@ function feeText(tags) {
 export async function poiDetails(place, signal) {
   let tags = place.tags;
   if (!tags) tags = await fetchTags(place, signal).catch(() => ({}));
-  const hut = place.type === 'hut';
-  const kind = tags.tourism || place.kind;
+  const type = place.type;
+  const stay = type === 'hut' || type === 'alm' || type === 'bivouac'; // Hütte, Alm oder Biwak
   return {
     tags,
     name: tags['name:de'] || tags.name || place.name,
-    label: hut ? (kind === 'wilderness_hut' ? 'Unbewirtschaftete Hütte' : 'Berghütte') : 'Parkplatz',
+    label: poiLabel(type, tags, place.kind),
     ele: parseEle(tags.ele) ?? place.ele ?? null,
     hours: describeHours(tags.opening_hours),
     operator: tags.operator || null,
-    beds: hut ? parseInt(tags.beds || tags.capacity, 10) || null : null,
-    spaces: !hut ? parseInt(tags.capacity, 10) || null : null,
-    fee: !hut ? feeText(tags) : null,
+    beds: stay ? parseInt(tags.beds || tags.capacity, 10) || null : null,
+    spaces: type === 'parking' ? parseInt(tags.capacity, 10) || null : null,
+    fee: type === 'parking' ? feeText(tags) : null,
     winterRoom: tags.winter_room === 'yes',
+    fireplace: tags.fireplace === 'yes' || tags.stove === 'yes',
+    blankets: tags.blankets === 'yes' || tags.mattress === 'yes',
+    emergency: type === 'bivouac' && (tags.shelter_type === 'basic_hut' || /notbiwak|notunterkunft|biwak/i.test(tags.name || '')),
     phone: first(tags.phone || tags['contact:phone']),
     website: url(first(tags.website || tags['contact:website'] || tags.url)),
   };
+}
+
+/** Bezeichnung je nach Art, z. B. „Biwakschachtel“ oder „Alm / Einkehr“ */
+export function poiLabel(type, tags = {}, kind) {
+  if (type === 'hut') return 'Berghütte';
+  if (type === 'alm') return 'Alm / Einkehr';
+  if (type === 'bivouac') {
+    if (/biwak|bivacco|bivouac/i.test(tags.name || '')) return 'Biwak';
+    if ((tags.tourism || kind) === 'wilderness_hut') return 'Unbewirtschaftete Hütte';
+    if (tags.shelter_type === 'rock_shelter') return 'Unterstand im Fels';
+    if (tags.shelter_type === 'lean_to') return 'Unterstand';
+    return 'Notunterkunft';
+  }
+  return 'Parkplatz';
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +113,6 @@ export async function poiImage(place, tags, signal) {
     if (w) return w;
   }
   // Bei Parkplätzen wäre ein „Foto aus der Nähe“ meist irgendetwas anderes
-  if (place.type === 'hut') return nearbyImage(place, 120, signal).catch(() => null);
+  if (place.type !== 'parking') return nearbyImage(place, 120, signal).catch(() => null);
   return null;
 }

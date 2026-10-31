@@ -33,8 +33,11 @@ function relation(place, ele, peak) {
   return parts.join(' · ');
 }
 
+const POI_ICON = { hut: 'hut', alm: 'hut', bivouac: 'tent', parking: 'parking' };
+
 function render(el, place, info, peak) {
-  const hut = place.type === 'hut';
+  const hut = place.type !== 'parking'; // Hütte, Alm, Biwak
+  const bivouac = place.type === 'bivouac';
   const sub = [info.label, info.ele != null ? `${nf.format(info.ele)} m` : null].filter(Boolean).join(' · ');
 
   let status = '';
@@ -42,6 +45,10 @@ function render(el, place, info, peak) {
     const cls = info.hours.open === true ? 'is-open' : info.hours.open === false ? 'is-closed' : '';
     const word = info.hours.open === true ? 'Geöffnet' : info.hours.open === false ? 'Derzeit geschlossen' : 'Öffnungszeiten';
     status = `<div class="poi-status ${cls}"><b>${word}</b><span>${escapeHtml(info.hours.text)}</span></div>`;
+  } else if (bivouac) {
+    status = `<div class="poi-status ${info.emergency ? 'is-closed' : ''}"><b>${info.emergency ? 'Notunterkunft' : 'Unbewirtschaftet'}</b><span>${info.emergency
+      ? 'Nur für Notfälle gedacht – nicht als geplantes Übernachtungsziel.'
+      : 'Selbstversorgung, keine Bewirtung. Zustand und Zugang vorher klären.'}</span></div>`;
   } else if (hut && place.kind !== 'wilderness_hut') {
     const where = info.website ? 'auf der Website' : info.phone ? 'telefonisch' : 'vor der Tour';
     status = `<div class="poi-status"><b>Öffnungszeiten</b><span>In OpenStreetMap nicht eingetragen – am besten ${where} prüfen</span></div>`;
@@ -51,6 +58,7 @@ function render(el, place, info, peak) {
   if (hut && info.operator) rows.push(['signpost', info.operator]);
   if (hut && info.beds) rows.push(['bed', `${info.beds} Schlafplätze${info.winterRoom ? ' · Winterraum' : ''}`]);
   else if (hut && info.winterRoom) rows.push(['bed', 'Winterraum vorhanden']);
+  if (bivouac && (info.fireplace || info.blankets)) rows.push(['hut', [info.fireplace ? 'Ofen' : null, info.blankets ? 'Decken/Matratzen' : null].filter(Boolean).join(' · ')]);
   if (!hut && info.fee) rows.push(['euro', info.fee]);
   if (!hut && info.spaces) rows.push(['parking', `ca. ${info.spaces} Stellplätze`]);
   const rel = relation(place, info.ele, peak);
@@ -63,7 +71,7 @@ function render(el, place, info, peak) {
 
   el.querySelector('.poi-body').innerHTML = `
     <div class="poi-head">
-      <span class="poi-ico ${hut ? 'hut' : 'parking'}">${icon(hut ? 'hut' : 'parking')}</span>
+      <span class="poi-ico ${place.type}">${icon(POI_ICON[place.type] || 'hut')}</span>
       <div><h3>${escapeHtml(info.name || info.label)}</h3><p>${escapeHtml(sub)}</p></div>
     </div>
     ${status}

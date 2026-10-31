@@ -26,15 +26,27 @@ const TYPE_LABEL = {
   station: 'Bahnhof',
   bus: 'Bushaltestelle',
   hut: 'Hütte',
+  alm: 'Alm',
+  bivouac: 'Biwak',
 };
 export const typeLabel = (t) => TYPE_LABEL[t] || 'Startpunkt';
 
-function classify(tags) {
+export function classify(tags) {
   if (tags.highway === 'trailhead') return 'trailhead';
   if (tags.aerialway === 'station') return 'cablecar';
   if (tags.railway === 'station' || tags.railway === 'halt') return 'station';
   if (tags.highway === 'bus_stop') return 'bus';
-  if (tags.tourism === 'alpine_hut' || tags.tourism === 'wilderness_hut') return 'hut';
+  if (tags.tourism === 'alpine_hut') return 'hut';
+  // Notbiwaks, Biwakschachteln, unbewirtschaftete Hütten und Unterstände am Berg
+  if (tags.tourism === 'wilderness_hut') return 'bivouac';
+  if (tags.amenity === 'shelter') {
+    const t = tags.shelter_type;
+    if (t === 'basic_hut' || t === 'rock_shelter' || t === 'lean_to') return 'bivouac';
+    if (/biwak|bivacco|notunterkunft|bivouac/i.test(tags.name || '')) return 'bivouac';
+    return null;
+  }
+  // Bewirtschaftete Almen (meist als Gasthaus eingetragen)
+  if ((tags.amenity === 'restaurant' || tags.amenity === 'cafe' || tags.amenity === 'biergarten') && /alm|alpe\b|hütte|huette|stub[ae]n?\b|baude/i.test(tags.name || '')) return 'alm';
   if (tags.amenity === 'parking') return 'parking';
   return null;
 }
@@ -56,6 +68,9 @@ ${peakPart}
   node["railway"~"^(station|halt)$"]${around};
   node["highway"="bus_stop"]["name"]${around};
   nwr["tourism"~"^(alpine_hut|wilderness_hut)$"]${around};
+  nwr["amenity"="shelter"]["shelter_type"~"^(basic_hut|rock_shelter|lean_to)$"]${around};
+  nwr["amenity"="shelter"]["name"~"[Bb]iwak|[Bb]ivacco|[Nn]otunterkunft"]${around};
+  nwr["amenity"~"^(restaurant|cafe|biergarten)$"]["name"~"[Aa]lm|[Aa]lpe|[Hh]ütte|[Hh]uette|[Bb]aude"]${around};
 );
 out center tags;`;
 
@@ -105,7 +120,7 @@ out center tags;`;
 const PHOTON_GROUPS = [
   ['amenity:parking', 'highway:trailhead', 'aerialway:station', 'railway:station', 'railway:halt'],
   ['highway:bus_stop'],
-  ['tourism:alpine_hut', 'tourism:wilderness_hut'],
+  ['tourism:alpine_hut', 'tourism:wilderness_hut', 'amenity:shelter'],
 ];
 
 async function viaPhoton(peak, radius, signal) {
@@ -131,7 +146,7 @@ async function viaPhoton(peak, radius, signal) {
     if (g.status !== 'fulfilled') continue;
     for (const f of g.value) {
       const p = f.properties || {};
-      const type = classify({ [p.osm_key]: p.osm_value });
+      const type = classify({ [p.osm_key]: p.osm_value, name: p.name });
       const id = `${({ N: 'node', W: 'way', R: 'relation' })[p.osm_type] || 'x'}/${p.osm_id}`;
       if (!type || seen.has(id)) continue;
       seen.add(id);

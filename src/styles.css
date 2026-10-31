@@ -787,3 +787,40 @@ body:has(#panel[hidden]) .planner { left: 16px; width: min(560px, calc(100% - 32
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
 .btn-plan:hover { background: #d6336c; }
+.poi-ico.alm { background: #4d7c0f; }
+.poi-ico.bivouac { background: #e8590c; }
+
+/* Orte hervorheben: Knöpfe oben auf der Karte */
+.poi-filter {
+  position: fixed; z-index: 19; top: 16px;
+  left: calc(16px + var(--panel-w) + 16px); right: 80px;
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px;
+}
+body:has(#panel[hidden]) .poi-filter { left: calc(16px + var(--panel-w) + 16px); }
+.poi-filter::-webkit-scrollbar { display: none; }
+.poi-filter button {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px 0 6px;
+  border-radius: 999px; font-size: 13.5px; font-weight: 600; color: var(--text);
+  background: var(--glass-strong); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  box-shadow: var(--shadow); cursor: pointer; transition: transform 0.15s, background 0.15s;
+}
+.poi-filter button:active { transform: scale(0.97); }
+.poi-filter button:disabled { opacity: 0.5; cursor: default; }
+.poi-filter button[aria-pressed="true"] { color: #fff; }
+.poi-filter button[aria-pressed="true"][data-cat="huts"] { background: #9a4f1c; }
+.poi-filter button[aria-pressed="true"][data-cat="bivouacs"] { background: #e8590c; }
+.poi-filter button[aria-pressed="true"][data-cat="webcams"] { background: #1c7ed6; }
+.pf-dot { width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center; color: #fff; flex: none; }
+.pf-dot .icon { width: 14px; height: 14px; }
+.pf-huts { background: #9a4f1c; }
+.pf-bivouacs { background: #e8590c; }
+.pf-webcams { background: #20313f; }
+.poi-filter button[aria-pressed="true"] .pf-dot { background: rgba(255, 255, 255, 0.25); }
+.pf-n { font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.poi-filter button[aria-pressed="true"] .pf-n { color: rgba(255, 255, 255, 0.85); }
+body.wx-mode .poi-filter { display: none; }
+@media (max-width: 720px) {
+  .poi-filter { top: calc(max(12px, env(safe-area-inset-top)) + 58px); left: 12px; right: 62px; }
+  body:has(#panel[hidden]) .poi-filter { left: 12px; }
+  .poi-filter button { height: 34px; font-size: 13px; }
+}

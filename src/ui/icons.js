@@ -34,6 +34,7 @@ const P = {
   chevronLeft: '<path d="m15 6-6 6 6 6"/>',
   loop: '<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/>',
   footprints: '<path d="M7 14c-1.7 0-3-2.2-3-5s1.3-5 3-5 3 2.2 3 5-1.3 5-3 5ZM17 20c-1.7 0-3-2.2-3-5s1.3-5 3-5 3 2.2 3 5-1.3 5-3 5Z"/>',
+  tent: '<path d="M3 19.5 12 5l9 14.5Z"/><path d="M12 5v14.5M9.2 19.5 12 14l2.8 5.5"/>',
   camera: '<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5Z"/><circle cx="12" cy="12.5" r="3.5"/>',
   play2: '<circle cx="12" cy="12" r="8.5"/><path d="M10 8.8v6.4l5.2-3.2Z" fill="currentColor"/>',
   bed: '<path d="M3 18V7M3 14h18v4M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5"/><circle cx="7" cy="11" r="1.8"/>',

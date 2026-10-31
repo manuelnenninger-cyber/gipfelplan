@@ -12,7 +12,17 @@ import { PLAN_COLOR } from '../api/routing.js';
 // Eigene Quellen/Ebenen beginnen mit "gp-" und überleben Stilwechsel.
 // Ebenen mit "gp-wx" verwaltet das Wetter-Overlay selbst.
 const isOurs = (id) => id.startsWith('gp-') && !id.startsWith('gp-wx');
-const POI_LAYERS = ['gp-parking', 'gp-huts', 'gp-webcams'];
+const POI_LAYERS = ['gp-parking', 'gp-huts', 'gp-bivouacs', 'gp-webcams'];
+
+// Hervorheben auf Wunsch: Hütten & Almen, Notbiwaks oder Webcams
+const HIGHLIGHT = {
+  huts: { layer: 'gp-huts', kinds: ['hut', 'alm'], color: '#9a4f1c' },
+  bivouacs: { layer: 'gp-bivouacs', kinds: ['bivouac'], color: '#e8590c' },
+  webcams: { layer: 'gp-webcams', color: '#1c7ed6' },
+};
+const POI_MINZOOM = { 'gp-parking': 12.5, 'gp-huts': 11, 'gp-bivouacs': 11, 'gp-webcams': 9.5 };
+const POI_SIZE = ['interpolate', ['linear'], ['zoom'], 11, 0.7, 15, 1];
+const POI_SIZE_HL = ['interpolate', ['linear'], ['zoom'], 8, 0.8, 12, 1, 15, 1.2];
 const BELOW_LABELS = (id) => id === 'gp-hillshade' || id === 'gp-trails' || id.startsWith('gp-radar');
 
 const EMPTY = { type: 'FeatureCollection', features: [] };
@@ -71,6 +81,7 @@ export function createMapView(container) {
     saved: null,
     peak: null,
     planning: null, // Funktion, die angetippte Punkte für die eigene Route bekommt
+    highlight: null, // hervorgehobene Art von Orten
   };
   const listeners = { peak: [], route: [], styleload: [] };
   let peakMarker = null;
@@ -113,6 +124,8 @@ export function createMapView(container) {
     }
     if (!map.getSource('gp-huts')) map.addSource('gp-huts', { type: 'geojson', data: hutData });
     addMapIcon(map, 'gp-hut');
+    addMapIcon(map, 'gp-alm');
+    addMapIcon(map, 'gp-bivouac');
     addMapIcon(map, 'gp-parking');
     addMapIcon(map, 'gp-webcam');
     // Mehrere Webcams am selben Ort (z. B. 11 am Zugspitzgipfel) werden zu einem Symbol mit Zahl
@@ -157,18 +170,41 @@ export function createMapView(container) {
         },
       });
       // Hütten und Parkplätze: Kartenebenen statt HTML-Elementen (flüssiger), anklickbar
-      const poiLayer = (id, kind, image, minzoom) => map.addLayer({
-        id, type: 'symbol', source: 'gp-huts', minzoom,
-        filter: ['==', ['get', 'kind'], kind],
+      const poiLayer = (id, kinds, image) => map.addLayer({
+        id, type: 'symbol', source: 'gp-huts', minzoom: POI_MINZOOM[id],
+        filter: ['in', ['get', 'kind'], ['literal', kinds]],
         layout: {
           'icon-image': image,
-          'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.7, 15, 1],
+          'icon-size': POI_SIZE,
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
         },
       });
-      poiLayer('gp-parking', 'parking', 'gp-parking', 12.5);
-      poiLayer('gp-huts', 'hut', 'gp-hut', 11);
+      // Markierung beim Hervorheben: farbiger Ring unter den Symbolen, dazu Namen
+      const ring = (id, source) => map.addLayer({
+        id, type: 'circle', source, layout: { visibility: 'none' },
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 12, 12, 16, 15, 20],
+          'circle-color': '#1c7ed6', 'circle-opacity': 0.22,
+          'circle-stroke-color': '#1c7ed6', 'circle-stroke-width': 2.5,
+        },
+      });
+      ring('gp-hl-poi', 'gp-huts');
+      ring('gp-hl-cam', 'gp-webcams');
+      poiLayer('gp-parking', ['parking'], 'gp-parking');
+      poiLayer('gp-huts', ['hut', 'alm'], ['match', ['get', 'kind'], 'alm', 'gp-alm', 'gp-hut']);
+      poiLayer('gp-bivouacs', ['bivouac'], 'gp-bivouac');
+      map.addLayer({
+        id: 'gp-hl-label', type: 'symbol', source: 'gp-huts', minzoom: 9.5, layout: {
+          visibility: 'none',
+          'text-field': ['coalesce', ['get', 'name'], ''],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 9.5, 10.5, 14, 13],
+          'text-anchor': 'top', 'text-offset': [0, 1.3], 'text-max-width': 9,
+          'text-optional': true,
+        },
+        paint: { 'text-color': '#1d1d1f', 'text-halo-color': 'rgba(255,255,255,0.95)', 'text-halo-width': 1.6 },
+      });
       map.addLayer({
         id: 'gp-webcams', type: 'symbol', source: 'gp-webcams', minzoom: 9.5,
         layout: {
@@ -209,6 +245,7 @@ export function createMapView(container) {
       if (l.type === 'fill-extrusion') map.setLayoutProperty(l.id, 'visibility', 'none');
     }
     applyVisibility();
+    applyHighlight();
     // Höhenlinien, Wanderwege, Gipfel
     // Zusatzebenen dürfen die Grundkarte nie blockieren
     try {
@@ -224,6 +261,35 @@ export function createMapView(container) {
         'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 12, 0],
       });
     } catch { /* ältere MapLibre-Versionen ohne Himmel */ }
+  }
+
+  function applyHighlight() {
+    if (!map.getLayer('gp-hl-poi')) return;
+    const cat = state.highlight;
+    const hl = HIGHLIGHT[cat];
+    for (const id of POI_LAYERS) {
+      if (!map.getLayer(id)) continue;
+      const on = hl?.layer === id;
+      // die gewählte Art größer und schon ab weiter draußen, alles andere blasser
+      map.setLayerZoomRange(id, on ? 8 : POI_MINZOOM[id], 24);
+      map.setLayoutProperty(id, 'icon-size', on ? POI_SIZE_HL : id === 'gp-webcams' ? ['interpolate', ['linear'], ['zoom'], 9.5, 0.65, 14, 0.95] : POI_SIZE);
+      map.setPaintProperty(id, 'icon-opacity', !hl || on ? 1 : 0.3);
+    }
+    const poiOn = hl && hl.kinds;
+    map.setLayoutProperty('gp-hl-poi', 'visibility', poiOn ? 'visible' : 'none');
+    map.setLayoutProperty('gp-hl-label', 'visibility', poiOn ? 'visible' : 'none');
+    map.setLayoutProperty('gp-hl-cam', 'visibility', cat === 'webcams' ? 'visible' : 'none');
+    if (poiOn) {
+      const f = ['in', ['get', 'kind'], ['literal', hl.kinds]];
+      map.setFilter('gp-hl-poi', f);
+      map.setFilter('gp-hl-label', f);
+      map.setPaintProperty('gp-hl-poi', 'circle-color', hl.color);
+      map.setPaintProperty('gp-hl-poi', 'circle-stroke-color', hl.color);
+    }
+    if (cat === 'webcams') {
+      map.setPaintProperty('gp-hl-cam', 'circle-color', hl.color);
+      map.setPaintProperty('gp-hl-cam', 'circle-stroke-color', hl.color);
+    }
   }
 
   function applyVisibility() {
@@ -457,6 +523,33 @@ export function createMapView(container) {
       });
     },
 
+    /** Eine Art von Orten hervorheben ('huts' | 'bivouacs' | 'webcams' | null) */
+    setHighlight(cat) {
+      state.highlight = cat;
+      applyHighlight();
+    },
+
+    /** Anzahl je Art (für die Auswahlknöpfe) */
+    poiCounts() {
+      const places = [...poiById.values()];
+      return {
+        huts: places.filter((p) => p.type === 'hut' || p.type === 'alm').length,
+        bivouacs: places.filter((p) => p.type === 'bivouac').length,
+        webcams: camById.size,
+      };
+    },
+
+    /** Alle Orte einer Art ins Bild holen, falls nicht schon alle sichtbar sind */
+    showAll(cat) {
+      const pts = cat === 'webcams'
+        ? [...camById.values()].map((c) => [c.lng, c.lat])
+        : [...poiById.values()].filter((p) => HIGHLIGHT[cat]?.kinds.includes(p.type)).map((p) => [p.lng, p.lat]);
+      if (!pts.length) return;
+      const b = map.getBounds();
+      if (pts.every(([lng, lat]) => b.contains([lng, lat]))) return;
+      fitBounds(boundsOf(pts.length > 1 ? pts : [pts[0], [pts[0][0] + 0.01, pts[0][1] + 0.01]]), { padding: padding(), duration: 800, maxZoom: 13.5, pitch: map.getPitch() });
+    },
+
     /** Planungsmodus: fn bekommt jeden angetippten Punkt; null beendet ihn */
     setPlanning(fn) {
       state.planning = fn;
@@ -495,7 +588,7 @@ export function createMapView(container) {
         type: 'FeatureCollection',
         features: places.map((p) => ({
           type: 'Feature',
-          properties: { id: p.id, kind: p.type, title: p.name ? `${typeLabel(p.type)}: ${p.name}` : typeLabel(p.type) },
+          properties: { id: p.id, kind: p.type, name: p.name || null, title: p.name ? `${typeLabel(p.type)}: ${p.name}` : typeLabel(p.type) },
           geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
         })),
       };

@@ -63,6 +63,10 @@ Zwei Raster werden ineinander geblendet: ein regionales (14 × 14 Punkte) für d
 
 **Webcams**: Kamerasymbole zeigen Webcams im Umkreis von 25 km um den Gipfel. Antippen öffnet das aktuelle Bild (mit Alter, z. B. „vor 7 Min.“), einen Link zum Anbieter (z. B. bergfex, foto-webcam.eu, Panomax) und den Zeitraffer. Quelle ist die Windy Webcams API; sie braucht einen kostenlosen Schlüssel (siehe „Webcams einrichten“). Ohne Schlüssel bleibt die Ebene einfach leer.
 
+**Notbiwaks, Hütten und Almen**: Neben Berghütten zeigt die Karte Biwakschachteln, Notunterkünfte, Unterstände und unbewirtschaftete Hütten (orange) sowie bewirtschaftete Almen (grün). Die Infokarte sagt, ob es sich um eine Notunterkunft handelt, und nennt Schlafplätze, Ofen oder Decken, soweit in OSM eingetragen.
+
+**Hervorheben**: Knöpfe oben auf der Karte – „Hütten & Almen“, „Notbiwaks“, „Webcams“, jeweils mit Anzahl – heben eine Art hervor: farbiger Ring, größeres Symbol, Namen, schon ab weiter herausgezoomter Karte; alles andere wird blasser. Liegen nicht alle im Bild, zoomt die Karte so, dass man sie sieht. Nochmal tippen hebt die Auswahl auf.
+
 **Hütten und Parkplätze** sind anklickbar und öffnen eine kleine Infokarte: Foto (aus OSM/Wikidata verlinkt, bei Hütten sonst ein Foto aus unmittelbarer Nähe von Wikimedia Commons), Öffnungszeit mit „geöffnet/derzeit geschlossen“ (aus der Saison in `opening_hours`), Betreiber, Schlafplätze, Gebühr und Stellplätze, Lage zum Gipfel (Luftlinie, Höhenmeter darunter), Knöpfe für Website, Anrufen und Navigation (Apple Karten bzw. Google Maps).
 
 ## Leistung

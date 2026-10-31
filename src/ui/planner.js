@@ -5,7 +5,7 @@ import { planRoute, planTitle } from '../api/routing.js';
 import { icon } from './icons.js';
 import { escapeHtml, fmtKm, fmtInt, fmtDuration } from '../util/format.js';
 
-const TYPE_ICON = { parking: 'parking', hut: 'hut', peak: 'mountain', point: 'signpost' };
+const TYPE_ICON = { parking: 'parking', hut: 'hut', alm: 'hut', bivouac: 'tent', peak: 'mountain', point: 'signpost' };
 let counter = 0;
 
 export function createPlanner({ view, getPeak, onAccept, onOpen, onClose }) {
