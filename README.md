@@ -136,8 +136,8 @@ Einrichten (einmalig): Auf vercel.com mit GitHub anmelden → „Add New… → 
 ### Konten einrichten (Supabase)
 
 1. `supabase/schema.sql` im SQL-Editor ausführen (beim Projekt `gipfelplan` bereits geschehen).
-2. Authentication → URL Configuration: Site URL `https://gipfelplan.vercel.app`, Redirect URLs zusätzlich `http://localhost:5173/**`.
-3. Authentication → Email Templates → „Magic Link“: Vorlage mit `{{ .Token }}` (Code) und `{{ .ConfirmationURL }}` (Link).
+2. Authentication → URL Configuration: Site URL `https://gipfelplan.vercel.app`, Redirect URLs `https://gipfelplan.vercel.app/**` und `http://localhost:5173/**`. Fehlt das, landet der Link aus der Mail auf `localhost:3000` und die Anmeldung kommt nicht in der App an.
+3. Authentication → Emails → Templates: bei „Magic Link“ und „Confirm sign up“ als Betreff `Gipfelplan: dein Anmeldecode {{ .Token }}` und als Inhalt `supabase/templates/anmeldung.html` (Code groß, dazu der Link).
 4. Für echte Nutzer eigenen Mailversand eintragen (Authentication → SMTP, z. B. Resend) – der eingebaute schickt nur wenige Mails pro Stunde.
 
 ### Webcams einrichten
