@@ -6,6 +6,7 @@ Touren- und Wetterplanung für Wanderungen und Bergtouren im Browser. Gipfel suc
 - **Wetter** am Gipfel für mehrere Tage, Tourenampel, animierte Wetterkarte (Niederschlag, Wolken in drei Höhen, Gewitter, Wind, Radar)
 - **Lawinenlage** der europäischen Warndienste als Karte und Zusammenfassung
 - **Karte** mit Höhenlinien, hervorgehobenen Wanderwegen und Gipfeln, anklickbaren Hütten und Parkplätzen, 2D/3D, Topo und Satellit
+- **Als App** auf dem Handy-Home-Bildschirm, zuletzt angesehene Touren auch ohne Empfang
 
 Alle Datenquellen sind offen und ohne API-Schlüssel nutzbar. Mitarbeit: siehe [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -68,6 +69,8 @@ Zwei Raster werden ineinander geblendet: ein regionales (14 × 14 Punkte) für d
 **Hervorheben**: Knöpfe oben auf der Karte – „Hütten & Almen“, „Notbiwaks“, „Webcams“, jeweils mit Anzahl – heben eine Art hervor: farbiger Ring, größeres Symbol, Namen, schon ab weiter herausgezoomter Karte; alles andere wird blasser. Liegen nicht alle im Bild, zoomt die Karte so, dass man sie sieht. Nochmal tippen hebt die Auswahl auf. Die Knöpfe funktionieren auch ohne gewählten Gipfel: Dann lädt die App die gewählte Art für den sichtbaren Kartenausschnitt und beim Verschieben nach (ab mittlerer Zoomstufe; Hütten über Overpass mit Photon als Rückfall, Webcams über die Windy-Schnittstelle). Die Zahlen auf den Knöpfen gelten für den sichtbaren Ausschnitt.
 
 **Konto & gespeicherte Touren**: Ohne Anmeldung nutzbar. Erst beim Tippen auf „Speichern“ fragt die App nach der E-Mail-Adresse und schickt einen 6-stelligen Code bzw. Anmeldelink – kein Passwort, das Konto entsteht automatisch, man bleibt angemeldet. Oben rechts: „Meine Touren“ (öffnen, löschen) und Abmelden. Technik: Supabase (Projekt `gipfelplan`, Frankfurt) direkt per REST ohne zusätzliche Bibliothek; Tabelle und Zeilenrechte in `supabase/schema.sql`.
+
+**Als App und ohne Empfang**: Auf dem iPhone in Safari „Teilen → Zum Home-Bildschirm“ – die App startet dann im Vollbild mit eigenem Symbol (ein Hinweis erklärt das einmalig). Ein Service Worker (`public/sw.js`) speichert die App selbst, angesehene Kartenkacheln (inkl. Gelände und Höhenlinien) und die letzten Antworten der Datendienste. Zusätzlich legt die App für die letzten 12 Gipfel Routen, Hütten und Parkplätze sowie die Wetterprognose in IndexedDB ab (14 Tage). Ohne Empfang zeigt sie diesen Stand mit Hinweis „Ohne Empfang: gespeicherte Routen vom …“, die Suche bietet die zuletzt angesehenen Gipfel an, und „Meine Touren“ kommt aus einer lokalen Kopie. Die Karte ist offline nur dort vorhanden, wo man sie vorher mit Netz angesehen hat – am besten vor der Tour die Route einmal auf der Karte abfahren und hineinzoomen. Im Dev-Server ist der Service Worker aus; zum Ausprobieren `?sw=1` an die Adresse hängen.
 
 **Hütten und Parkplätze** sind anklickbar und öffnen eine kleine Infokarte: Foto (aus OSM/Wikidata verlinkt, bei Hütten sonst ein Foto aus unmittelbarer Nähe von Wikimedia Commons), Öffnungszeit mit „geöffnet/derzeit geschlossen“ (aus der Saison in `opening_hours`), Betreiber, Schlafplätze, Gebühr und Stellplätze, Lage zum Gipfel (Luftlinie, Höhenmeter darunter), Knöpfe für Website, Anrufen und Navigation (Apple Karten bzw. Google Maps).
 
@@ -149,8 +152,6 @@ Für mehr Nutzer: Open-Meteo-Abo oder eigene Instanz, eigener BRouter-Server (Do
 
 ## Ideen für die nächsten Schritte
 
-- Rundtouren und Überschreitungen (Auf- und Abstieg über verschiedene Wege)
-- Hütten als Zwischenziel, Öffnungszeiten aus OSM
-- Lawinenlagebericht einbinden (Euregio, Bayern, Schweiz)
-- Tour speichern und als Link teilen, Offline-Modus als PWA
-- Eigene Startpunkte per Klick auf die Karte setzen
+- Tour als Link teilen
+- Kartenausschnitt einer Tour gezielt für unterwegs herunterladen
+- Eigener Mailversand (SMTP), Datenschutzerklärung und Impressum vor dem Start für andere
