@@ -1,9 +1,9 @@
 // Gipfelplan – Service Worker: App ohne Empfang starten, Karten und Daten aus dem Zwischenspeicher.
-// Bei jeder Änderung VERSION erhöhen; alte Zwischenspeicher werden dann aufgeräumt.
-const VERSION = 'v1';
+// Bei Änderungen an der Seite VERSION erhöhen (nur der App-Speicher wird erneuert; Karten und Daten bleiben).
+const VERSION = 'v2';
 const SHELL = `gp-shell-${VERSION}`;   // Seite, Skripte, Stile, Symbole
-const TILES = `gp-tiles-${VERSION}`;   // Kartenkacheln, Schriften, Geländedaten
-const DATA = `gp-data-${VERSION}`;     // Wetter, Routen, Suche (letzte Antworten)
+const TILES = 'gp-tiles-v1';   // Kartenkacheln, Schriften, Geländedaten
+const DATA = 'gp-data-v1';     // Wetter, Routen, Suche (letzte Antworten)
 const LIMITS = { [TILES]: 6000, [DATA]: 400 };
 
 // Kacheln ändern sich selten → erst Zwischenspeicher, dann Netz
@@ -96,24 +96,28 @@ async function cacheFirst(req, name) {
   }
 }
 
+// Erst Netz. Dauert es länger als `timeout` und gibt es eine gespeicherte Antwort, kommt
+// diese; sonst wird weiter auf das Netz gewartet (Routenberechnung kann dauern).
 async function networkFirst(req, name, timeout, fallbackUrl) {
   const cache = await caches.open(name);
-  try {
-    const res = await withTimeout(fetch(req), timeout);
+  const cached = () => cache.match(req).then((hit) => hit || (fallbackUrl && cache.match(fallbackUrl)));
+  const net = fetch(req).then((res) => {
     if (res.ok) { cache.put(fallbackUrl || req, res.clone()); trim(name); }
     return res;
+  });
+  let timer;
+  const slow = new Promise((resolve) => {
+    timer = setTimeout(async () => { const hit = await cached(); if (hit) resolve(hit); }, timeout);
+  });
+  try {
+    return await Promise.race([net, slow]);
   } catch (err) {
-    const hit = (await cache.match(req)) || (fallbackUrl && (await cache.match(fallbackUrl)));
+    const hit = await cached();
     if (hit) return hit;
     throw err;
+  } finally {
+    clearTimeout(timer);
   }
-}
-
-function withTimeout(p, ms) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('timeout')), ms);
-    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
-  });
 }
 
 // Zwischenspeicher begrenzen: älteste Einträge zuerst raus
