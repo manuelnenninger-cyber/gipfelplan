@@ -863,6 +863,7 @@ body.wx-mode .poi-filter { display: none; }
   height: 54px; border-radius: 12px; background: var(--fill); text-align: center;
   font: 600 26px var(--font-display); letter-spacing: 0.3em; font-variant-numeric: tabular-nums;
 }
+.acct-code::placeholder { font: 400 15px var(--font); letter-spacing: 0; color: var(--text-3); }
 .acct-field:focus-within, .acct-code:focus { box-shadow: 0 0 0 2px var(--accent); }
 .acct-go { height: 46px; font-size: 15px; gap: 8px; }
 .acct-go .spinner { border-color: rgba(255, 255, 255, 0.35); border-top-color: #fff; }

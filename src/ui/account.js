@@ -53,9 +53,9 @@ export function createAccount({ onOpenTour, toast }) {
         <p class="acct-fine">Kein Passwort nötig: Du bekommst einen Code per Mail. Neu hier? Dann wird dein Konto dabei automatisch angelegt. Jeder Browser und die App auf dem Home-Bildschirm brauchen die Anmeldung einmal – danach bleibst du dort angemeldet.</p>`;
     } else {
       box.innerHTML = `${head}
-        <p class="acct-lead">Wir haben dir eine Mail an <b>${escapeHtml(email)}</b> geschickt. Gib den Code daraus ein. Der Link in der Mail meldet dich in dem Browser an, in dem er sich öffnet.</p>
+        <p class="acct-lead">Wir haben dir eine Mail an <b>${escapeHtml(email)}</b> geschickt. Tippe auf den Link darin – öffnet er sich in diesem Browser, schließt sich dieses Fenster von selbst. Steht ein Code in der Mail, kannst du ihn auch hier eingeben.</p>
         <form class="acct-form">
-          <input class="acct-code" name="code" placeholder="123456" autocomplete="one-time-code" inputmode="numeric" maxlength="10" required />
+          <input class="acct-code" name="code" placeholder="Code (falls in der Mail)" autocomplete="one-time-code" inputmode="numeric" maxlength="10" required />
           ${error ? `<p class="acct-error">${escapeHtml(error)}</p>` : ''}
           <button class="btn btn-primary acct-go" ${busy ? 'disabled' : ''}>${busy ? '<span class="spinner"></span>' : ''}Anmelden</button>
         </form>
@@ -165,7 +165,11 @@ export function createAccount({ onOpenTour, toast }) {
   });
   root.addEventListener('click', (e) => { if (e.target === root) close(null); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !root.hidden) close(null); });
-  onAuthChange(updateButton);
+  onAuthChange((u) => {
+    updateButton();
+    // Link aus der Mail in einem anderen Tab geöffnet → hier wartender Dialog ist erledigt
+    if (u && !root.hidden && waiting) { toast?.(`Angemeldet als ${u.email}`); close(u); }
+  });
   updateButton();
 
   return { requireLogin, openMine, refresh: updateButton };
