@@ -3,7 +3,7 @@ import { demElevations, osmElevations } from '../api/osm.js';
 import { escapeHtml, fmtInt } from '../util/format.js';
 import { icon } from './icons.js';
 
-export function setupSearch({ getCenter, onSelect }) {
+export function setupSearch({ getCenter, onSelect, getRecent = () => [] }) {
   const input = document.getElementById('search-input');
   const list = document.getElementById('search-results');
   const clearBtn = document.getElementById('search-clear');
@@ -11,8 +11,9 @@ export function setupSearch({ getCenter, onSelect }) {
   let active = -1;
   let ctrl = null;
   let timer = 0;
+  let mode = 'search'; // oder 'recent'
 
-  function render(state) {
+  function render(state, note = '') {
     if (state === 'loading') {
       list.innerHTML = '<li class="sr-note">Suche …</li>';
     } else if (state === 'empty') {
@@ -20,7 +21,8 @@ export function setupSearch({ getCenter, onSelect }) {
     } else if (state === 'error') {
       list.innerHTML = '<li class="sr-note">Die Suche ist gerade nicht erreichbar. Prüfe die Internetverbindung.</li>';
     } else {
-      list.innerHTML = results
+      const head = mode === 'recent' ? `<li class="sr-note sr-head">${escapeHtml(note || 'Zuletzt angesehen')}</li>` : '';
+      list.innerHTML = head + results
         .map((r, i) => `
           <li role="option" id="sr-${i}" aria-selected="${i === active}" data-i="${i}">
             <span class="sr-icon">${icon('mountain')}</span>
@@ -54,8 +56,23 @@ export function setupSearch({ getCenter, onSelect }) {
         if (results === list0 && !list.hidden) render('list');
       }
     } catch (e) {
-      if (e.name !== 'AbortError') render('error');
+      if (e.name === 'AbortError') return;
+      // Ohne Netz: unter den zuletzt angesehenen Gipfeln suchen (die gehen auch offline)
+      const ql = q.toLowerCase();
+      const hits = getRecent().filter((r) => r.name.toLowerCase().includes(ql));
+      if (hits.length) { results = hits; active = 0; mode = 'recent'; render('list', 'Ohne Empfang – zuletzt angesehen'); mode = 'search'; }
+      else render('error');
     }
+  }
+
+  function showRecent() {
+    const recent = getRecent();
+    if (!recent.length) return;
+    results = recent;
+    active = -1;
+    mode = 'recent';
+    render('list', navigator.onLine === false ? 'Ohne Empfang – zuletzt angesehen' : 'Zuletzt angesehen');
+    mode = 'search';
   }
 
   function choose(i) {
@@ -71,7 +88,7 @@ export function setupSearch({ getCenter, onSelect }) {
     const q = input.value.trim();
     clearBtn.hidden = !q;
     clearTimeout(timer);
-    if (q.length < 2) { list.hidden = true; return; }
+    if (q.length < 2) { list.hidden = true; if (!q) showRecent(); return; }
     timer = setTimeout(() => run(q), 250);
   });
 
@@ -83,7 +100,10 @@ export function setupSearch({ getCenter, onSelect }) {
     else if (e.key === 'Escape') { list.hidden = true; }
   });
 
-  input.addEventListener('focus', () => { if (results.length && input.value.trim().length >= 2) render('list'); });
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length < 2) showRecent();
+    else if (results.length) render('list');
+  });
   list.addEventListener('click', (e) => {
     const li = e.target.closest('li[data-i]');
     if (li) choose(+li.dataset.i);

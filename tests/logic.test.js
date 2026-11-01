@@ -479,3 +479,14 @@ test('Anmeldung: verständliche Fehler', () => {
   assert.match(authMessage({ msg: 'Token has expired or is invalid' }, 403), /falsch oder abgelaufen/);
   assert.match(authMessage({ msg: 'For security purposes, you can only request this after 42 seconds.' }, 429), /Zu viele/);
 });
+
+import { slimRoute } from '../src/util/offline.js';
+
+test('Offline: Routen schlank speichern', () => {
+  const r = { id: 'x', title: 'T', dist: [0, 10], coords: [[11.123456789, 47.1, 999.6], [11.2, 47.2, undefined]] };
+  const s = slimRoute(r);
+  assert.equal(s.dist, undefined);
+  assert.deepEqual(s.coords[0], [11.12346, 47.1, 1000]);
+  assert.equal(s.coords[1][2], null);
+  assert.equal(s.title, 'T');
+});

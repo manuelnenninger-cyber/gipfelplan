@@ -891,3 +891,26 @@ body.wx-mode .poi-filter { display: none; }
 .acct-mail .icon { width: 15px; height: 15px; flex: none; }
 .btn-save.is-saved { background: var(--accent); color: #fff; opacity: 1; }
 .route-title .saved-mark { width: 13px; height: 13px; color: var(--accent); margin-right: 4px; vertical-align: -1px; }
+
+/* Ohne Empfang / als App */
+.offline-note {
+  display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; padding: 8px 10px; border-radius: 10px;
+  background: rgba(240, 160, 32, 0.14); color: var(--text); font-size: 12.5px; line-height: 1.4;
+}
+.offline-note .icon { width: 15px; height: 15px; flex: none; color: var(--fair); margin-top: 1px; }
+html.is-offline .search-field::after {
+  content: "Offline"; flex: none; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  color: #fff; background: var(--fair);
+}
+.install-hint {
+  position: fixed; z-index: 55; left: 12px; right: 12px; top: calc(max(12px, env(safe-area-inset-top)) + 104px);
+  display: flex; gap: 12px; align-items: center; padding: 12px 12px 12px 14px; border-radius: 16px;
+  background: var(--glass-solid); color: var(--text); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  font-size: 13px; line-height: 1.4; animation: panel-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.install-hint img { border-radius: 11px; flex: none; }
+.install-hint div { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.install-hint span { color: var(--text-2); }
+.install-hint span b { color: var(--text); font-weight: 600; }
+.ih-share { width: 16px; height: 16px; vertical-align: -3px; color: var(--accent); }
+.sr-head { padding: 6px 10px 4px !important; font-size: 11.5px !important; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-3) !important; }

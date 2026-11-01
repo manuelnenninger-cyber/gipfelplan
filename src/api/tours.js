@@ -63,16 +63,37 @@ export function fromRow(row) {
   };
 }
 
+// „Meine Touren“ auch ohne Empfang: letzte Liste auf dem Gerät
+const LOCAL = 'gp.tours';
+const remember = (rows) => { try { localStorage.setItem(LOCAL, JSON.stringify(rows)); } catch { /* voll/privat */ } };
+const recall = () => { try { return JSON.parse(localStorage.getItem(LOCAL) || 'null'); } catch { return null; } };
+
 export async function listTours() {
-  const rows = await rest('tours?select=*&order=created_at.desc&limit=200');
-  return rows.map(fromRow);
+  try {
+    const rows = await rest('tours?select=*&order=created_at.desc&limit=200');
+    remember(rows);
+    return rows.map(fromRow);
+  } catch (e) {
+    const rows = recall();
+    if (!rows) throw e;
+    const list = rows.map(fromRow);
+    list.offline = true;
+    return list;
+  }
 }
 
 export async function saveTour(tour, peak) {
   const [row] = await rest('tours', { method: 'POST', body: toRow(tour, peak), prefer: 'return=representation' });
+  remember([row, ...(recall() || [])]);
   return fromRow(row);
 }
 
 export async function deleteTour(savedId) {
   await rest(`tours?id=eq.${encodeURIComponent(savedId)}`, { method: 'DELETE' });
+  remember((recall() || []).filter((r) => r.id !== savedId));
+}
+
+/** beim Abmelden: lokale Kopie entfernen */
+export function forgetLocalTours() {
+  try { localStorage.removeItem(LOCAL); } catch { /* egal */ }
 }

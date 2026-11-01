@@ -1,6 +1,6 @@
 // Konto: Anmeldung nur bei Bedarf (z. B. beim Speichern), „Meine Touren“, Abmelden.
 import { isConfigured, user, onAuthChange, sendCode, verifyCode, signOut } from '../api/auth.js';
-import { listTours, deleteTour } from '../api/tours.js';
+import { listTours, deleteTour, forgetLocalTours } from '../api/tours.js';
 import { icon } from './icons.js';
 import { escapeHtml, fmtKm, fmtInt, fmtDuration } from '../util/format.js';
 
@@ -104,11 +104,12 @@ export function createAccount({ onOpenTour, toast }) {
     box.innerHTML = `
       <header class="acct-head"><h2 id="acct-title">Meine Touren</h2>
         <button class="icon-btn acct-x" aria-label="Schließen">${icon('x')}</button></header>
+      ${tours?.offline ? `<p class="offline-note">${icon('alert')}<span>Ohne Empfang – zuletzt geladene Liste</span></p>` : ''}
       <div class="acct-list">${tours == null ? '<p class="acct-lead"><span class="spinner"></span> Lade …</p>' : list()}</div>
       <footer class="acct-foot"><span class="acct-mail">${icon('user')}${escapeHtml(u?.email || '')}</span>
         <button class="acct-link acct-out">${icon('logout')}Abmelden</button></footer>`;
     box.querySelector('.acct-x').addEventListener('click', () => close(null));
-    box.querySelector('.acct-out').addEventListener('click', async () => { await signOut(); tours = null; close(null); toast?.('Abgemeldet'); });
+    box.querySelector('.acct-out').addEventListener('click', async () => { await signOut(); forgetLocalTours(); tours = null; close(null); toast?.('Abgemeldet'); });
     box.querySelectorAll('.acct-tour').forEach((b) => b.addEventListener('click', () => {
       const t = tours.find((x) => x.savedId === b.dataset.id);
       if (t) { close(null); onOpenTour?.(t); }

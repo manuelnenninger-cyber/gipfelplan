@@ -1,6 +1,6 @@
 import { API } from '../config.js';
 import { fetchWithTimeout } from './osm.js';
-import { cacheGet, cacheSet } from '../util/cache.js';
+import { cacheGet, cacheSet, cacheGetStale } from '../util/cache.js';
 
 // Druckflächen und ihre typische Höhe (Standardatmosphäre). Für den Gipfelwind
 // ist der Wind auf der passenden Druckfläche aussagekräftiger als der
@@ -64,14 +64,25 @@ export async function fetchForecast({ lat, lng, ele }, { signal } = {}) {
     wind_speed_unit: 'kmh',
     ...(ele != null ? { elevation: String(ele) } : {}),
   });
-  const key = `fc:v2:${url}`;
+  // „keep:“ – bleibt für unterwegs ohne Empfang länger erhalten
+  const key = `keep:fc:v2:${url}`;
   const cached = await cacheGet(key, 30 * 60 * 1000);
   if (cached) return buildForecast(cached, level, ele);
-  const res = await fetchWithTimeout(url, { timeout: 15000, signal });
-  if (!res.ok) await throwApiError(res, 'Wetterdaten nicht verfügbar');
-  const json = await res.json();
-  cacheSet(key, json);
-  return buildForecast(json, level, ele);
+  try {
+    const res = await fetchWithTimeout(url, { timeout: navigator.onLine === false ? 1 : 15000, signal });
+    if (!res.ok) await throwApiError(res, 'Wetterdaten nicht verfügbar');
+    const json = await res.json();
+    cacheSet(key, json);
+    return buildForecast(json, level, ele);
+  } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    // Kein Netz: letzte bekannte Prognose zeigen
+    const stale = await cacheGetStale(key);
+    if (!stale) throw e;
+    const fc = buildForecast(stale.data, level, ele);
+    fc.offlineAt = new Date(stale.t);
+    return fc;
+  }
 }
 
 export function buildForecast(d, level, ele) {

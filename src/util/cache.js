@@ -1,6 +1,8 @@
 // Kleiner dauerhafter Zwischenspeicher im Browser (IndexedDB). Wetterraster sind
 // groß und zählen beim Wetterdienst gegen das Kontingent – nach einem Neuladen der
 // Seite sollen sie nicht erneut abgerufen werden. Fehler werden ignoriert.
+// Schlüssel mit „keep:“ (Gipfel, Routen, Wetter für unterwegs ohne Empfang) bleiben
+// 14 Tage, alles andere 6 Stunden.
 const DB = 'gipfelplan';
 const STORE = 'cache';
 let dbPromise = null;
@@ -33,6 +35,21 @@ export async function cacheGet(key, maxAgeMs) {
   }
 }
 
+/** Eintrag unabhängig vom Alter, mit Zeitpunkt: { data, t } oder null (für ohne Netz) */
+export async function cacheGetStale(key) {
+  try {
+    const d = await db();
+    if (!d) return null;
+    return await new Promise((resolve) => {
+      const req = d.transaction(STORE).objectStore(STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function cacheSet(key, data) {
   try {
     const d = await db();
@@ -45,7 +62,8 @@ export async function cacheSet(key, data) {
       cur.onsuccess = () => {
         const c = cur.result;
         if (!c) return;
-        if (Date.now() - c.value.t > 6 * 3600 * 1000) c.delete();
+        const keep = typeof c.key === 'string' && c.key.startsWith('keep:');
+        if (Date.now() - c.value.t > (keep ? 14 * 24 : 6) * 3600 * 1000) c.delete();
         c.continue();
       };
     }

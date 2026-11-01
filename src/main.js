@@ -11,6 +11,9 @@ import { createExplore } from './ui/explore.js';
 import { createAccount } from './ui/account.js';
 import { consumeRedirect } from './api/auth.js';
 import { saveTour } from './api/tours.js';
+import { rememberPeak, recallPeak } from './util/offline.js';
+import { setupApp, maybeShowInstallHint } from './ui/app.js';
+import { cumulativeDistances } from './util/geo.js';
 import { loadSurroundings, demElevation } from './api/osm.js';
 import { suggestRoutes } from './api/routing.js';
 import { fetchForecast } from './api/weather.js';
@@ -249,10 +252,12 @@ async function selectPeak(input) {
   sheet.snap('half');
   search.setValue(peak.name);
   history.replaceState(null, '', `#${peak.lat.toFixed(5)},${peak.lng.toFixed(5)},${encodeURIComponent(peak.name)}`);
+  rememberRecent(peak);
 
   view.clear();
   updatePoiFilter();
   view.showPeak(peak);
+  setTimeout(maybeShowInstallHint, 4000); // nach dem ersten Gipfel: Tipp „als App installieren“ (iPhone)
   overlay.setFocus({ w: peak.lng, e: peak.lng, s: peak.lat, n: peak.lat }); // feines Wetterraster um den Gipfel
   view.flyToPeak(peak);
   routesPanel.loading('Suche Startpunkte im Umkreis …');
@@ -262,6 +267,20 @@ async function selectPeak(input) {
   fetchWebcams(peak.lat, peak.lng, { signal })
     .then((d) => { if (!stale() && d) { view.showWebcams(d.cams); updatePoiFilter(); } })
     .catch((e) => { if (e.name !== 'AbortError') console.info('Webcams nicht geladen:', e.message); });
+
+  // Ohne Empfang: gespeicherten Stand dieses Gipfels zeigen (Routen, Hütten, Wetter)
+  if (navigator.onLine === false) {
+    const snap = await recallPeak(peak);
+    if (stale()) return;
+    if (snap?.peak.ele && !peak.ele) { peak.ele = snap.peak.ele; updatePeakHeader(peak); }
+    fetchForecast(peak, { signal })
+      .then((fc) => { if (!stale()) forecastPanel.set(peak, fc); })
+      .catch((e) => { if (e.name !== 'AbortError') forecastPanel.error('Ohne Empfang und noch keine Prognose auf dem Gerät.'); });
+    if (!showSnapshot(peak, snap, 'Ohne Empfang')) {
+      routesPanel.message('Ohne Empfang', 'Für diesen Gipfel ist noch nichts auf dem Gerät gespeichert. Öffne ihn einmal mit Netz – danach ist er auch ohne Empfang verfügbar.');
+    }
+    return;
+  }
 
   // Höhe aus dem Höhenmodell (schnell) für das Wetter, OSM-Höhe folgt mit den Startpunkten
   const demP = peak.ele ? Promise.resolve(peak.ele) : demElevation(peak.lat, peak.lng).catch(() => null);
@@ -285,6 +304,8 @@ async function selectPeak(input) {
     if (res.ele) { peak.ele = res.ele; updatePeakHeader(peak); }
   } catch (e) {
     if (e.name === 'AbortError') return;
+    const snap = await recallPeak(peak);
+    if (stale() || showSnapshot(peak, snap, 'Keine Verbindung')) return;
     routesPanel.message('Startpunkte konnten nicht geladen werden', `${e.message}. Der OpenStreetMap-Dienst ist manchmal überlastet; versuche es in einer Minute noch einmal.`);
     return;
   }
@@ -306,16 +327,39 @@ async function selectPeak(input) {
         if (done && routes.length) {
           const [[w, s], [e, n]] = boundsOf(routes.flatMap((r) => r.coords));
           overlay.setFocus({ w, s, e, n }); // feines Wetterraster über alle Touren
+          rememberPeak(peak, routes, places); // für unterwegs ohne Empfang
         }
       },
     });
   } catch (e) {
     if (e.name === 'AbortError') return;
+    const snap = await recallPeak(peak);
+    if (stale() || showSnapshot(peak, snap, 'Keine Verbindung')) return;
     routesPanel.message('Routen konnten nicht berechnet werden', e.message);
   }
 }
 
-const search = setupSearch({ getCenter: () => view.map.getCenter(), onSelect: selectPeak });
+const dayFmt = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+/** Gespeicherten Stand (Routen, Hütten) anzeigen; false, wenn es keinen gibt */
+function showSnapshot(peak, snap, why) {
+  if (!snap?.routes?.length) return false;
+  const routes = snap.routes.map((r) => ({ ...r, dist: cumulativeDistances(r.coords) }));
+  view.showPOIs(snap.places || []);
+  updatePoiFilter();
+  routesPanel.set(peak, routes, { note: `${why}: gespeicherte Routen vom ${dayFmt.format(snap.at)}` });
+  view.fitRoutes();
+  return true;
+}
+
+// Zuletzt angesehene Gipfel (für die Suche und den Start als App, auch ohne Empfang)
+const RECENT = 'gp.recent';
+const getRecent = () => { try { return JSON.parse(localStorage.getItem(RECENT) || '[]'); } catch { return []; } };
+function rememberRecent(p) {
+  const item = { name: p.name, lat: p.lat, lng: p.lng, ele: p.ele ?? null, region: p.region || '', osmType: p.osmType ?? null, osmId: p.osmId ?? null };
+  const list = [item, ...getRecent().filter((r) => Math.abs(r.lat - p.lat) > 1e-4 || Math.abs(r.lng - p.lng) > 1e-4)].slice(0, 8);
+  try { localStorage.setItem(RECENT, JSON.stringify(list)); } catch { /* voll/privat */ }
+}
+const search = setupSearch({ getCenter: () => view.map.getCenter(), onSelect: selectPeak, getRecent });
 view.on('peak', selectPeak);
 view.on('route', (id) => {
   if (panel.hidden) return;
@@ -410,6 +454,9 @@ window.addEventListener('drop', (e) => {
 });
 
 // --- Gipfel aus der Adresszeile (#lat,lng,Name) wiederherstellen ---------------------
+// --- Als App auf dem Handy, ohne Empfang -------------------------------------------
+setupApp({ toast });
+
 // --- Konto: Anmelden nur bei Bedarf, gespeicherte Touren öffnen ---------------------
 const account = createAccount({ onOpenTour: openSavedTour, toast });
 if (loginRedirect?.ok) setTimeout(() => toast('Du bist angemeldet.'), 400);
@@ -433,6 +480,10 @@ if (m) {
   view.map.once('load', () => selectPeak({
     lat: +m[1], lng: +m[2], name: decodeURIComponent(m[3]), ele: null, region: '', osmType: null, osmId: null,
   }));
+} else if (getRecent().length && (document.documentElement.classList.contains('is-standalone') || navigator.onLine === false)) {
+  // Als App gestartet oder ohne Empfang: dort weitermachen, wo man aufgehört hat
+  const last = getRecent()[0];
+  view.map.once('load', () => selectPeak({ ...last }));
 } else {
   $('search-input').focus();
 }

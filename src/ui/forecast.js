@@ -6,6 +6,7 @@ import { escapeHtml, fmtInt, fmtWeekday, fmtDayLong, fmtTime } from '../util/for
 
 const LEVEL_HEIGHT = { 850: 1500, 800: 2000, 700: 3000, 600: 4200, 500: 5600 };
 const nf1 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
+const fmtDayHourShort = (d) => new Intl.DateTimeFormat('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
 const r = (v) => (v == null || Number.isNaN(v) ? '–' : Math.round(v));
 
 export function createForecastPanel(el, { onOpenMap, onDay, onAvalancheMap }) {
@@ -28,6 +29,7 @@ export function createForecastPanel(el, { onOpenMap, onDay, onAvalancheMap }) {
     const day = fc.days[dayIdx];
 
     el.innerHTML = `
+      ${fc.offlineAt ? `<p class="offline-note">${icon('alert')}<span>Ohne Empfang: Prognose vom ${fmtDayHourShort(fc.offlineAt)} Uhr</span></p>` : ''}
       ${avalancheCard(ava, day.date, peak)}
       <div class="now-card">
         <div class="now-main">

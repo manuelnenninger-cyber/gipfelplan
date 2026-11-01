@@ -4,15 +4,54 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/proxy/brouter/:path*", "destination": "https://brouter.de/:path*" },
-    { "source": "/proxy/ovp-main/:path*", "destination": "https://overpass-api.de/:path*" },
-    { "source": "/proxy/ovp-alt/:path*", "destination": "https://overpass.private.coffee/:path*" },
-    { "source": "/proxy/ovp-kumi/:path*", "destination": "https://overpass.kumi.systems/:path*" }
+    {
+      "source": "/proxy/brouter/:path*",
+      "destination": "https://brouter.de/:path*"
+    },
+    {
+      "source": "/proxy/ovp-main/:path*",
+      "destination": "https://overpass-api.de/:path*"
+    },
+    {
+      "source": "/proxy/ovp-alt/:path*",
+      "destination": "https://overpass.private.coffee/:path*"
+    },
+    {
+      "source": "/proxy/ovp-kumi/:path*",
+      "destination": "https://overpass.kumi.systems/:path*"
+    }
   ],
   "headers": [
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        }
+      ]
     }
   ]
 }

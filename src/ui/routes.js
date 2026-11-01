@@ -42,6 +42,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
   let peak = null;
   let filter = 'all';
   let pending = false;
+  let note = '';
 
   const all = () => [...imported, ...routes];
   const visible = () => all().filter(FILTERS.find((f) => f.id === filter).test);
@@ -94,6 +95,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
     el.innerHTML = `
       ${planButton()}
       <div class="chips" role="group" aria-label="Touren filtern">${chips}</div>
+      ${note ? `<p class="offline-note">${icon('alert')}<span>${escapeHtml(note)}</span></p>` : ''}
       <p class="list-note">${list.length === 1 ? '1 Tour' : `${list.length} Touren`}, sortiert nach Gesamtzeit${pending ? '<span class="pending"><span class="spinner"></span>weitere werden berechnet</span>' : ''}</p>
       ${list.length ? `<ul class="route-list">${list.map(row).join('')}</ul>` : '<p class="muted small empty-filter">Keine Tour passt zu diesem Filter.</p>'}
       ${moreTours()}
@@ -227,11 +229,12 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
     loading,
     message,
     /** Liste setzen; bei Zwischenständen bleiben Filter und Auswahl erhalten */
-    set(p, list, { pending: isPending = false } = {}) {
+    set(p, list, { pending: isPending = false, note: info = '' } = {}) {
       const samePeak = p === peak;
       peak = p;
       routes = list;
       pending = isPending;
+      note = info;
       if (!samePeak) { filter = 'all'; selected = null; imported = []; }
       if (!visible().length && filter !== 'all') filter = 'all';
       if (selected && !all().some((r) => r.id === selected)) selected = null;
