@@ -50,10 +50,10 @@ export function createAccount({ onOpenTour, toast }) {
           ${error ? `<p class="acct-error">${escapeHtml(error)}</p>` : ''}
           <button class="btn btn-primary acct-go" ${busy ? 'disabled' : ''}>${busy ? '<span class="spinner"></span>' : ''}Code per E-Mail senden</button>
         </form>
-        <p class="acct-fine">Kein Passwort nötig: Du bekommst einen Code per Mail. Neu hier? Dann wird dein Konto dabei automatisch angelegt.</p>`;
+        <p class="acct-fine">Kein Passwort nötig: Du bekommst einen Code per Mail. Neu hier? Dann wird dein Konto dabei automatisch angelegt. Jeder Browser und die App auf dem Home-Bildschirm brauchen die Anmeldung einmal – danach bleibst du dort angemeldet.</p>`;
     } else {
       box.innerHTML = `${head}
-        <p class="acct-lead">Wir haben dir eine Mail an <b>${escapeHtml(email)}</b> geschickt. Gib den Code daraus ein – oder tippe einfach auf den Link in der Mail.</p>
+        <p class="acct-lead">Wir haben dir eine Mail an <b>${escapeHtml(email)}</b> geschickt. Gib den Code daraus ein. Der Link in der Mail meldet dich in dem Browser an, in dem er sich öffnet.</p>
         <form class="acct-form">
           <input class="acct-code" name="code" placeholder="123456" autocomplete="one-time-code" inputmode="numeric" maxlength="10" required />
           ${error ? `<p class="acct-error">${escapeHtml(error)}</p>` : ''}

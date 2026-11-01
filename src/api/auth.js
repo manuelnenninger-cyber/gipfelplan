@@ -16,6 +16,15 @@ function store(s) {
   listeners.forEach((fn) => fn(user()));
 }
 
+// Anmeldung in einem anderen Tab übernehmen (gleicher Browser, gleiche Adresse)
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== KEY) return;
+    session = load();
+    listeners.forEach((fn) => fn(user()));
+  });
+}
+
 export const isConfigured = () => !!(ACCOUNTS.url && ACCOUNTS.anonKey);
 export const user = () => (session?.user ? { id: session.user.id, email: session.user.email } : null);
 export function onAuthChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
@@ -100,6 +109,9 @@ export async function accessToken() {
   refreshing ||= call('token?grant_type=refresh_token', { refresh_token: session.refresh_token })
     .then((d) => { store(withExpiry({ ...d, user: d.user || session.user })); return session.access_token; })
     .catch((e) => {
+      // Hat ein anderer Tab das Token gerade erneuert, dessen Sitzung übernehmen statt abzumelden
+      const other = load();
+      if (other?.refresh_token && other.refresh_token !== session?.refresh_token) { session = other; return other.access_token; }
       if (!/fetch|Zeitüberschreitung|network/i.test(e.message)) store(null); // abgelaufen → abmelden
       throw e;
     })
