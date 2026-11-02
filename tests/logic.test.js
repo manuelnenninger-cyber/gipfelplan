@@ -478,6 +478,10 @@ test('Touren speichern: Zeile hin und zurück', () => {
 test('Anmeldung: verständliche Fehler', () => {
   assert.match(authMessage({ msg: 'Token has expired or is invalid' }, 403), /falsch oder abgelaufen/);
   assert.match(authMessage({ msg: 'For security purposes, you can only request this after 42 seconds.' }, 429), /Zu viele/);
+  assert.match(authMessage({ error_code: 'invalid_credentials', msg: 'Invalid login credentials' }, 400), /Passwort stimmt nicht/);
+  assert.match(authMessage({ msg: 'User already registered' }, 422), /schon ein Konto/);
+  assert.match(authMessage({ error_code: 'weak_password', msg: 'Password should be at least 6 characters.' }, 422), /mindestens 8/);
+  assert.match(authMessage({ error_code: 'email_not_confirmed', msg: 'Email not confirmed' }, 400), /bestätige/);
 });
 
 import { slimRoute } from '../src/util/offline.js';

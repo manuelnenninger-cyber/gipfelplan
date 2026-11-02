@@ -848,7 +848,8 @@ body.wx-mode .poi-filter { display: none; }
 }
 .acct-head { display: flex; align-items: center; justify-content: space-between; }
 .acct-head h2 { margin: 0; font: 700 21px/1.2 var(--font-display); letter-spacing: -0.015em; }
-.acct-lead { margin: 0; font-size: 14px; line-height: 1.45; color: var(--text-2); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acct-lead { margin: 0; font-size: 14px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.acct-loading { display: flex; align-items: center; gap: 8px; }
 .acct-lead b { color: var(--text); }
 .acct-form { display: flex; flex-direction: column; gap: 10px; }
 .acct-field {
@@ -869,6 +870,17 @@ body.wx-mode .poi-filter { display: none; }
 .acct-go .spinner { border-color: rgba(255, 255, 255, 0.35); border-top-color: #fff; }
 .acct-error { margin: 0; font-size: 13px; color: var(--poor); }
 .acct-fine { margin: 0; font-size: 12.5px; color: var(--text-3); line-height: 1.45; }
+.acct-switch {
+  margin: 2px 0 0; padding-top: 12px; border-top: 1px solid var(--hair);
+  font-size: 13.5px; color: var(--text-2); text-align: center;
+}
+.acct-switch .acct-link { font-size: 13.5px; font-weight: 600; }
+.acct-eye {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin-right: -6px;
+  border: 0; border-radius: 8px; background: none; color: var(--text-3); cursor: pointer;
+}
+.acct-eye.is-on { color: var(--accent); }
+.acct-eye .icon { width: 18px; height: 18px; }
 .acct-link {
   display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: none;
   color: var(--accent); font: 500 13px var(--font); cursor: pointer;

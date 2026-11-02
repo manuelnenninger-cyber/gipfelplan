@@ -1,4 +1,4 @@
-// Anmeldung ohne Passwort: E-Mail eingeben → 6-stelliger Code (oder Link) aus der Mail.
+// Anmeldung mit E-Mail und Passwort; „Passwort vergessen“ per Mail (Link oder Code).
 // Spricht direkt mit Supabase Auth (REST), ohne zusätzliche Bibliothek.
 import { ACCOUNTS } from '../config.js';
 import { fetchWithTimeout } from './osm.js';
@@ -29,9 +29,9 @@ export const isConfigured = () => !!(ACCOUNTS.url && ACCOUNTS.anonKey);
 export const user = () => (session?.user ? { id: session.user.id, email: session.user.email } : null);
 export function onAuthChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
-async function call(path, body, { token, timeout = 12000 } = {}) {
+async function call(path, body, { token, timeout = 12000, method = 'POST' } = {}) {
   const res = await fetchWithTimeout(`${ACCOUNTS.url}/auth/v1/${path}`, {
-    method: 'POST',
+    method,
     timeout,
     headers: {
       apikey: ACCOUNTS.anonKey,
@@ -48,7 +48,13 @@ async function call(path, body, { token, timeout = 12000 } = {}) {
 /** verständliche Fehlermeldungen */
 export function authMessage(data, status) {
   const raw = `${data?.msg || data?.error_description || data?.message || data?.error || ''}`;
+  const code = `${data?.error_code || data?.code || ''}`;
   if (status === 429 || /rate limit|security purposes|too many/i.test(raw)) return 'Zu viele Versuche. Bitte in einer Minute noch einmal.';
+  if (code === 'invalid_credentials' || /invalid login credentials/i.test(raw)) return 'E-Mail oder Passwort stimmt nicht.';
+  if (code === 'email_not_confirmed' || /email not confirmed/i.test(raw)) return 'Bitte bestätige zuerst deine E-Mail-Adresse über den Link in der Mail.';
+  if (code === 'user_already_exists' || /already registered|already exists/i.test(raw)) return 'Für diese E-Mail gibt es schon ein Konto. Melde dich an oder nutze „Passwort vergessen?“.';
+  if (code === 'weak_password' || /password should|weak password|at least \d+ characters/i.test(raw)) return 'Das Passwort ist zu kurz oder zu einfach (mindestens 8 Zeichen).';
+  if (code === 'same_password' || /different from the old/i.test(raw)) return 'Das neue Passwort muss sich vom alten unterscheiden.';
   if (/expired|invalid|otp/i.test(raw)) return 'Der Code ist falsch oder abgelaufen.';
   if (/email/i.test(raw) && /valid|format/i.test(raw)) return 'Bitte eine gültige E-Mail-Adresse eingeben.';
   return raw || `Anmeldung fehlgeschlagen (${status})`;
@@ -58,25 +64,44 @@ function withExpiry(s) {
   return { ...s, expires_at: s.expires_at || Math.floor(Date.now() / 1000) + (s.expires_in || 3600) };
 }
 
-/** Schritt 1: Code (und Anmeldelink) per Mail schicken; legt das Konto bei Bedarf an */
-export async function sendCode(email) {
-  const back = `${location.origin}${location.pathname}`;
-  await call(`otp?redirect_to=${encodeURIComponent(back)}`, { email: email.trim(), create_user: true });
-}
+const back = () => `${location.origin}${location.pathname}`;
+const clean = (email) => email.trim().toLowerCase();
 
-/** Schritt 2: Code prüfen → angemeldet */
-export async function verifyCode(email, code) {
-  const token = code.replace(/\D/g, '');
-  let data;
-  try {
-    data = await call('verify', { type: 'email', email: email.trim(), token });
-  } catch (e) {
-    // ältere Projekte unterscheiden noch zwischen Anmeldung und Registrierung
-    data = await call('verify', { type: 'signup', email: email.trim(), token }).catch(() => { throw e; });
-  }
-  if (!data.access_token) throw new Error('Anmeldung fehlgeschlagen.');
+/** Anmelden mit E-Mail und Passwort */
+export async function signIn(email, password) {
+  const data = await call('token?grant_type=password', { email: clean(email), password });
   store(withExpiry(data));
   return user();
+}
+
+/**
+ * Konto anlegen. Ist in Supabase „Confirm email“ aus, ist man sofort angemeldet
+ * (→ { user }); sonst kommt erst eine Bestätigungsmail (→ { confirm: true }).
+ */
+export async function signUp(email, password) {
+  const data = await call(`signup?redirect_to=${encodeURIComponent(back())}`, { email: clean(email), password });
+  if (data.access_token) { store(withExpiry(data)); return { user: user() }; }
+  return { confirm: true };
+}
+
+/** Passwort vergessen: Mail mit Link (und je nach Vorlage Code) schicken */
+export async function requestReset(email) {
+  await call(`recover?redirect_to=${encodeURIComponent(back())}`, { email: clean(email) });
+}
+
+/** Code aus der „Passwort vergessen“-Mail prüfen → angemeldet, danach neues Passwort setzen */
+export async function verifyResetCode(email, code) {
+  const data = await call('verify', { type: 'recovery', email: clean(email), token: code.replace(/\D/g, '') });
+  if (!data.access_token) throw new Error('Der Code ist falsch oder abgelaufen.');
+  store(withExpiry(data));
+  return user();
+}
+
+/** Neues Passwort für das angemeldete Konto */
+export async function updatePassword(password) {
+  const token = await accessToken();
+  if (!token) throw new Error('Bitte erst anmelden.');
+  await call('user', { password }, { token, method: 'PUT' });
 }
 
 /** Wurde die Seite über den Link aus der Mail geöffnet? Dann Sitzung übernehmen. */
@@ -85,7 +110,10 @@ export function consumeRedirect() {
   if (!/(^|&)(access_token|error_description)=/.test(h)) return false;
   const p = new URLSearchParams(h);
   history.replaceState(null, '', location.pathname + location.search);
-  if (p.get('error_description')) return { error: p.get('error_description').replace(/\+/g, ' ') };
+  if (p.get('error_description')) {
+    const expired = p.get('error_code') === 'otp_expired' || /expired|invalid/i.test(p.get('error_description'));
+    return { error: expired ? 'Der Link ist abgelaufen oder wurde schon benutzt.' : p.get('error_description').replace(/\+/g, ' ') };
+  }
   const s = {
     access_token: p.get('access_token'),
     refresh_token: p.get('refresh_token'),
@@ -98,7 +126,7 @@ export function consumeRedirect() {
     s.user = { id: claims.sub, email: claims.email };
   } catch { return { error: 'Anmeldelink ungültig' }; }
   store(withExpiry(s));
-  return { ok: true };
+  return { ok: true, type: p.get('type') || '' }; // 'recovery' = Link aus „Passwort vergessen“
 }
 
 let refreshing = null;

@@ -18,6 +18,7 @@ const P = {
   signpost: '<path d="M12 3v18M12 6h7l2 2-2 2h-7M12 12H5l-2 2 2 2h7"/>',
   arrowUp: '<path d="M12 19V5m0 0-6 6m6-6 6 6"/>',
   arrowDown: '<path d="M12 5v14m0 0 6-6m-6 6-6-6"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   route: '<circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/>',
   alert: '<path d="M12 4 2.8 19.5h18.4Z"/><path d="M12 10v4M12 17h.01"/>',

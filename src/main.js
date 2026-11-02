@@ -459,7 +459,8 @@ setupApp({ toast });
 
 // --- Konto: Anmelden nur bei Bedarf, gespeicherte Touren öffnen ---------------------
 const account = createAccount({ onOpenTour: openSavedTour, toast });
-if (loginRedirect?.ok) setTimeout(() => toast('Du bist angemeldet.'), 400);
+if (loginRedirect?.ok && loginRedirect.type === 'recovery') setTimeout(() => account.askNewPassword(), 300);
+else if (loginRedirect?.ok) setTimeout(() => toast(loginRedirect.type === 'signup' ? 'E-Mail bestätigt – du bist angemeldet.' : 'Du bist angemeldet.'), 400);
 else if (loginRedirect?.error) setTimeout(() => toast(`Anmeldung fehlgeschlagen: ${loginRedirect.error}`), 400);
 
 function openSavedTour(t) {
