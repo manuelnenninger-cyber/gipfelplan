@@ -30,9 +30,16 @@ const FILTERS = [
   { id: 'loop', label: 'Rundtouren', test: (r) => r.kind === 'loop' || r.isLoop },
   { id: 'marked', label: 'Markierte Wege', test: (r) => r.kind === 'marked' },
   { id: 'hut', label: 'Mit Hütte', test: (r) => r.kind === 'hut' || (r.huts?.length ?? 0) > 0 },
-  { id: 'easy', label: 'Bis T3', test: (r) => r.kind !== 'import' && (r.sac || 0) <= 3 },
   { id: 'short', label: 'Unter 6 h', test: (r) => r.timeTotal < 6 },
 ];
+
+// Schwierigkeit in drei Stufen (SAC-Skala), Farben wie die Tourenampel
+export const DIFFS = [
+  { id: 'easy', label: 'Leicht', range: 'T1–T2', test: (r) => r.sac >= 1 && r.sac <= 2 },
+  { id: 'medium', label: 'Mittel', range: 'T3', test: (r) => r.sac === 3 },
+  { id: 'hard', label: 'Schwer', range: 'T4–T6', test: (r) => r.sac >= 4 },
+];
+export const diffOf = (r) => DIFFS.find((d) => d.test(r))?.id || null;
 
 export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave }) {
   const saved = new Map(); // Tour-ID → ID in der Datenbank
@@ -41,11 +48,14 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
   let selected = null;
   let peak = null;
   let filter = 'all';
+  let diff = 'all';
   let pending = false;
   let note = '';
 
   const all = () => [...imported, ...routes];
-  const visible = () => all().filter(FILTERS.find((f) => f.id === filter).test);
+  const byKind = (list) => list.filter(FILTERS.find((f) => f.id === filter).test);
+  const byDiff = (list) => (diff === 'all' ? list : list.filter((r) => diffOf(r) === diff));
+  const visible = () => byDiff(byKind(all()));
 
   function loading(text) {
     el.innerHTML = `
@@ -87,25 +97,37 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       return;
     }
     const list = visible();
+    // Zahlen berücksichtigen den jeweils anderen Filter
+    const kindBase = byKind(all());
+    // Keine Stufe gewählt = alle; nochmal tippen hebt die Auswahl auf
+    const seg = DIFFS.map((d) => ({ ...d, n: kindBase.filter(d.test).length }))
+      .map((d) => `<button data-diff="${d.id}" aria-pressed="${d.id === diff}" ${d.n || d.id === diff ? '' : 'disabled'} title="${d.label}: ${d.range}">
+          <i class="dd dd-${d.id}"></i>${d.label}<span>${d.n}</span></button>`)
+      .join('');
     const chips = FILTERS
-      .map((f) => ({ ...f, n: all().filter(f.test).length }))
+      .map((f) => ({ ...f, n: byDiff(all()).filter(f.test).length }))
       .filter((f) => f.id === 'all' || f.n > 0)
       .map((f) => `<button class="chip" data-filter="${f.id}" aria-pressed="${f.id === filter}">${f.label}<span>${f.n}</span></button>`)
       .join('');
     el.innerHTML = `
       ${planButton()}
+      <div class="diff-seg" role="group" aria-label="Nach Schwierigkeit filtern">${seg}</div>
       <div class="chips" role="group" aria-label="Touren filtern">${chips}</div>
       ${note ? `<p class="offline-note">${icon('alert')}<span>${escapeHtml(note)}</span></p>` : ''}
       <p class="list-note">${list.length === 1 ? '1 Tour' : `${list.length} Touren`}, sortiert nach Gesamtzeit${pending ? '<span class="pending"><span class="spinner"></span>weitere werden berechnet</span>' : ''}</p>
-      ${list.length ? `<ul class="route-list">${list.map(row).join('')}</ul>` : '<p class="muted small empty-filter">Keine Tour passt zu diesem Filter.</p>'}
+      ${list.length ? `<ul class="route-list">${list.map(row).join('')}</ul>` : '<p class="muted small empty-filter">Keine Tour passt zu dieser Auswahl.</p>'}
       ${moreTours()}
-      <p class="fineprint">Berechnet aus OpenStreetMap-Daten. Wegzustand, Sperrungen und Verhältnisse vor Ort prüfen; die Schwierigkeit stammt aus der SAC-Angabe der Wege. Gehzeiten nach DAV-Formel ohne Pausen.</p>`;
+      <p class="fineprint">Berechnet aus OpenStreetMap-Daten. Wegzustand, Sperrungen und Verhältnisse vor Ort prüfen; die Schwierigkeit stammt aus der SAC-Angabe der Wege (leicht T1–T2, mittel T3, schwer T4–T6). Gehzeiten nach DAV-Formel ohne Pausen.</p>`;
 
-    el.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => {
-      filter = b.dataset.filter;
+    const refilter = () => {
       if (selected && !visible().some((r) => r.id === selected)) selected = null;
       render();
       onShow?.(visible(), selected);
+    };
+    el.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => { filter = b.dataset.filter; refilter(); }));
+    el.querySelectorAll('[data-diff]').forEach((b) => b.addEventListener('click', () => {
+      diff = b.dataset.diff === diff ? 'all' : b.dataset.diff;
+      refilter();
     }));
     bindMore();
     el.querySelectorAll('.route-row').forEach((b) => {
@@ -160,7 +182,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
                 : `<span title="Aufstieg">${icon('clock')}${fmtDuration(r.timeUp)}</span><span title="Höhenmeter">${icon('arrowUp')}${fmtM(r.up)}</span><span title="Strecke einfach">${icon('route')}${fmtKm(r.length)}</span>`}
             </span>
           </span>
-          ${r.sac ? `<span class="sac sac-${r.sac}" title="${SAC_TEXT[r.sac]}">T${r.sac}</span>` : ''}
+          ${r.sac ? `<span class="sac sac-${diffOf(r)}" title="${SAC_TEXT[r.sac]}"><small>${DIFFS.find((d) => d.test(r)).label}</small>T${r.sac}</span>` : ''}
         </button>
         ${isSel ? detail(r) : ''}
       </li>`;
@@ -195,7 +217,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
           <div><dt>Gesamt</dt><dd>${fmtDuration(r.timeTotal)}</dd></div>
           <div><dt>${loop ? 'Strecke gesamt' : 'Strecke einfach'}</dt><dd>${fmtKm(r.length)}</dd></div>
           <div><dt>Höhenmeter</dt><dd>${icon('arrowUp')}${fmtInt(r.up)} ${icon('arrowDown')}${fmtInt(r.down)}</dd></div>
-          <div><dt>Schwierigkeit</dt><dd>${r.sac ? `T${r.sac}, ${SAC_TEXT[r.sac]}` : 'Keine Angabe'}</dd></div>
+          <div><dt>Schwierigkeit</dt><dd>${r.sac ? `${DIFFS.find((d) => d.test(r)).label} (T${r.sac}), ${SAC_TEXT[r.sac]}` : 'Keine Angabe'}</dd></div>
         </dl>
         ${huts}
         ${notes.map((n) => `<p class="note">${icon('alert')}<span>${escapeHtml(n)}</span></p>`).join('')}
@@ -235,8 +257,8 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       routes = list;
       pending = isPending;
       note = info;
-      if (!samePeak) { filter = 'all'; selected = null; imported = []; }
-      if (!visible().length && filter !== 'all') filter = 'all';
+      if (!samePeak) { filter = 'all'; diff = 'all'; selected = null; imported = []; }
+      if (!visible().length) { filter = 'all'; diff = 'all'; }
       if (selected && !all().some((r) => r.id === selected)) selected = null;
       render();
       onShow?.(visible(), selected);
@@ -252,6 +274,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       if (forPeak && forPeak !== peak) { peak = forPeak; routes = []; imported = []; }
       imported.unshift(tour);
       filter = 'all';
+      diff = 'all';
       selected = tour.id;
       render();
       onShow?.(visible(), selected);
