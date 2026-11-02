@@ -41,7 +41,7 @@ export const DIFFS = [
 ];
 export const diffOf = (r) => DIFFS.find((d) => d.test(r))?.id || null;
 
-export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave }) {
+export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave, onPlanTour }) {
   const saved = new Map(); // Tour-ID → ID in der Datenbank
   let routes = [];
   let imported = [];
@@ -51,6 +51,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
   let diff = 'all';
   let pending = false;
   let note = '';
+  let planning = null; // { id, view } – „Planen“-Ansicht einer Tour ist offen
 
   const all = () => [...imported, ...routes];
   const byKind = (list) => list.filter(FILTERS.find((f) => f.id === filter).test);
@@ -89,6 +90,16 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
   }
 
   function render() {
+    if (planning) {
+      const r = all().find((x) => x.id === planning.id);
+      if (r && el.querySelector('.plan-host')) return; // Ansicht bleibt, auch wenn weitere Touren dazukommen
+      if (r) {
+        el.innerHTML = '<div class="plan-host"></div>';
+        planning.view = onPlanTour?.(r, el.querySelector('.plan-host'), () => { planning = null; render(); onShow?.(visible(), selected); });
+        return;
+      }
+      planning = null;
+    }
     if (!all().length) {
       if (pending) { loading('Berechne Touren …'); return; }
       message('Keine Route gefunden', 'Im Umkreis gibt es keinen Startpunkt mit Wegverbindung zum Gipfel. Plane eine eigene Route oder importiere eine GPX-Datei.');
@@ -138,6 +149,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       const prof = el.querySelector('.profile');
       if (r && prof) renderProfile(prof, r, { onHover });
       el.querySelector('.btn-gpx')?.addEventListener('click', () => downloadGPX(r));
+      el.querySelector('.btn-plan-tour')?.addEventListener('click', () => openPlan(r.id));
       el.querySelector('.btn-save:not(.is-saved)')?.addEventListener('click', async (e) => {
         const b = e.currentTarget;
         b.disabled = true;
@@ -222,6 +234,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
         ${huts}
         ${notes.map((n) => `<p class="note">${icon('alert')}<span>${escapeHtml(n)}</span></p>`).join('')}
         ${r.kind === 'marked' ? `<p class="marked-info">${icon('signpost')}<span>${r.symbol ? `Markierung: ${escapeHtml(r.symbol)}. ` : ''}<a href="${r.link}" target="_blank" rel="noopener">Weg bei Waymarked Trails ansehen</a></span></p>` : ''}
+        <button class="btn btn-primary btn-plan-tour">${icon('calendar')}Planen: Startzeit, Wetter, Sonne & Schnee</button>
         <div class="actions">
           ${r.savedId || saved.has(r.id)
             ? `<button class="btn btn-save is-saved" disabled>${icon('bookmarkFill')}Gespeichert</button>`
@@ -241,7 +254,21 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
+  function openPlan(id) {
+    planning = { id, view: null };
+    el.closest('.panel-body')?.scrollTo?.({ top: 0 });
+    render();
+  }
+
+  function closePlan() {
+    if (!planning) return;
+    const v = planning.view;
+    planning = null;
+    v?.close?.();
+  }
+
   function select(id, fromList = false) {
+    if (planning && planning.id !== id) closePlan();
     selected = id;
     render();
     onSelect?.(id, fromList);
@@ -257,13 +284,16 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       routes = list;
       pending = isPending;
       note = info;
-      if (!samePeak) { filter = 'all'; diff = 'all'; selected = null; imported = []; }
+      if (!samePeak) { closePlan(); filter = 'all'; diff = 'all'; selected = null; imported = []; }
       if (!visible().length) { filter = 'all'; diff = 'all'; }
       if (selected && !all().some((r) => r.id === selected)) selected = null;
       render();
       onShow?.(visible(), selected);
     },
     select(id) { if (id !== selected) select(id); },
+    /** „Planen“ für die gewählte Tour öffnen */
+    plan(id) { if (all().some((r) => r.id === id)) { selected = id; openPlan(id); } },
+    get planning() { return planning?.id || null; },
     /** Eigene oder gespeicherte Route oben einfügen und auswählen */
     addCustom(tour, forPeak) {
       if (imported.some((x) => x.id === tour.id)) { select(tour.id); return; }

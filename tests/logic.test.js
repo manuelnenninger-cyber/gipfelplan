@@ -523,3 +523,129 @@ test('Hangneigung: Farbklassen wie Lawinenkarten', () => {
   for (let p = 0; p < 4; p++) rgba[p * 4 + 3] = 255;
   assert.equal(slopePixels(rgba, 2, 13, 2900)[3], 0);
 });
+
+import { sunPosition, sunState } from '../src/util/sun.js';
+import { buildItinerary, pointAt, recommendStart, weatherAt, sunAlong, snowSummary, summitIndex } from '../src/api/plan.js';
+import { makeSampler, tileXY } from '../src/map/dem.js';
+
+test('Sonne: Stand zur Mittagszeit und nachts', () => {
+  // München, Sommeranfang, wahrer Mittag ≈ 11:16 UTC: Höhe ≈ 65°, Richtung Süd
+  const noon = sunPosition(new Date('2026-06-21T11:16:00Z'), 48.14, 11.58);
+  assert.ok(Math.abs(noon.alt - 65.3) < 0.8, `alt ${noon.alt}`);
+  assert.ok(Math.abs(noon.az - 180) < 4, `az ${noon.az}`);
+  // Sonnenaufgang im Osten
+  const morning = sunPosition(new Date('2026-06-21T03:30:00Z'), 48.14, 11.58);
+  assert.ok(morning.az > 40 && morning.az < 80 && morning.alt > -5 && morning.alt < 6);
+  assert.ok(sunPosition(new Date('2026-06-21T23:00:00Z'), 48.14, 11.58).alt < -10);
+});
+
+test('Sonne: Schatten durch Gelände', () => {
+  const flat = () => 1000;
+  const sun = { alt: 20, az: 180 };
+  assert.equal(sunState(flat, 11, 47, sun), 'sun');
+  assert.equal(sunState(flat, 11, 47, { alt: -5, az: 180 }), 'night');
+  // 1000 m hohe Wand 1 km südlich → 45° Horizont → bei 20° Sonnenhöhe Schatten
+  const wall = (lng, lat) => (lat < 47 - 0.009 ? 2000 : 1000);
+  assert.equal(sunState(wall, 11, 47, sun), 'shade');
+  assert.equal(sunState(wall, 11, 47, { alt: 50, az: 180 }), 'sun');
+  // Nordhang (fällt nach Norden ab, 45°) bei tiefer Südsonne → eigener Schatten
+  const northSlope = (lng, lat) => 1000 - (lat - 47) * 111320;
+  assert.equal(sunState(northSlope, 11, 47, { alt: 30, az: 180 }), 'shade');
+});
+
+test('Planen: Zeitplan einer Tour auf gleichem Weg', () => {
+  const route = {
+    kind: 'direct', timeUp: 3, timeDown: 2, timeTotal: 5, start: { name: 'Parkplatz' },
+    coords: [[11, 47, 1000], [11.01, 47.01, 1500], [11.02, 47.02, 2000]],
+    huts: [{ name: 'Hütte', index: 1 }],
+  };
+  const it = buildItinerary(route, { name: 'Gipfel', lng: 11.02, lat: 47.02 });
+  assert.equal(it.points.length, 5);
+  assert.ok(Math.abs(it.summitT - 3) < 1e-9 && Math.abs(it.total - 5) < 1e-9);
+  assert.ok(Math.abs(it.points[2].t - 3) < 1e-9 && Math.abs(it.points[4].t - 5) < 1e-9);
+  assert.deepEqual(it.marks.map((m) => m.kind), ['start', 'hut', 'summit', 'hut', 'end']);
+  const p = pointAt(it.points, 3);
+  assert.equal(p.ele, 2000);
+  assert.equal(summitIndex(route.coords, null), 2);
+});
+
+const dayFor = (date, hours) => {
+  const d = new Date(date); d.setHours(0, 0, 0, 0);
+  const at = (h) => { const x = new Date(d); x.setHours(h); return x; };
+  return {
+    date: d, sunrise: at(7), sunset: at(17),
+    hours: Array.from({ length: 24 }, (_, h) => ({ t: at(h), code: 1, cape: 0, temp: 5, wind: 10, windSummit: 20, ...(hours[h] || {}) })),
+  };
+};
+
+test('Planen: Startzeit nach Gewitter und Tageslicht', () => {
+  const quiet = dayFor('2026-07-10T00:00:00', {});
+  const r1 = recommendStart(quiet, 6, { now: new Date('2026-07-01T12:00:00') });
+  // Sonnenuntergang 17 Uhr − 30 min − 6 h → spätestens 10:30, Vorschlag 8:00
+  assert.equal(r1.latest.getHours() * 60 + r1.latest.getMinutes(), 10 * 60 + 30);
+  assert.equal(r1.suggested.getHours(), 8);
+  assert.equal(r1.limitedBy, 'light');
+  const storm = dayFor('2026-07-10T00:00:00', { 13: { code: 95 } });
+  const r2 = recommendStart(storm, 6, { now: new Date('2026-07-01T12:00:00') });
+  assert.equal(r2.latest.getHours(), 7);
+  assert.equal(r2.suggested.getHours(), 7);
+  assert.equal(r2.limitedBy, 'thunder');
+  assert.equal(r2.tight, false);
+  const r3 = recommendStart(storm, 9, { now: new Date('2026-07-01T12:00:00') });
+  assert.equal(r3.tight, true);
+});
+
+test('Planen: Wetter auf Punkthöhe, Schneegrenze', () => {
+  const day = dayFor('2026-07-10T00:00:00', {});
+  const fc = { ele: 2000, hours: day.hours };
+  const w = weatherAt(fc, new Date(day.date.getTime() + 9.5 * 3600000), 1000);
+  assert.ok(Math.abs(w.temp - 11.5) < 1e-9); // 5 °C am Gipfel + 1000 m × 0,65 °C
+  assert.equal(weatherAt(fc, day.hours[9].t, 2000, { summit: true }).wind, 20);
+  const s = snowSummary([{ ele: 900, depth: 0 }, { ele: 1420, depth: 0.05 }, { ele: 1800, depth: 0.3 }, { ele: 1200, depth: null }]);
+  assert.equal(s.from, 1400);
+  assert.equal(s.topDepth, 0.3);
+  assert.equal(snowSummary([{ ele: 900, depth: 0 }]).any, false);
+});
+
+test('Planen: Sonne/Schatten-Abschnitte und Geländeraster', () => {
+  const pts = [{ lng: 11, lat: 47, ele: 1000, t: 0 }, { lng: 11.01, lat: 47, ele: 1000, t: 1 }];
+  const segs = sunAlong(pts, new Date('2026-06-21T10:00:00Z'), () => 1000);
+  assert.equal(segs.length, 1);
+  assert.equal(segs[0].state, 'sun');
+  // Raster: Höhe wächst nach Osten (x) um 1 m je Pixel
+  const tile = new Float32Array(256 * 256).map((_, i) => i % 256);
+  const [fx, fy] = tileXY(11, 47, 11);
+  const sample = makeSampler((x, y) => (x === Math.floor(fx) && y === Math.floor(fy) ? tile : null), 11);
+  const h = sample(11, 47);
+  assert.ok(Math.abs(h - ((fx - Math.floor(fx)) * 256 - 0.5)) < 1e-3);
+});
+
+import { looksSnowy } from '../src/map/satellite.js';
+import { satSnowLine } from '../src/api/plan.js';
+
+test('Schnee im Satellitenbild', () => {
+  assert.equal(looksSnowy(235, 238, 240), true);   // Schnee in der Sonne
+  assert.equal(looksSnowy(70, 95, 140), true);     // Schnee im Schatten (bläulich)
+  assert.equal(looksSnowy(90, 85, 60), false);     // Fels/Wiese
+  assert.equal(looksSnowy(20, 40, 70), false);     // See
+  assert.equal(looksSnowy(0, 0, 0, 0), null);      // keine Aufnahme
+  const line = satSnowLine([
+    { ele: 1000, snowy: false }, { ele: 1400, snowy: false }, { ele: 1800, snowy: true },
+    { ele: 1900, snowy: false }, { ele: 2100, snowy: true }, { ele: 2400, snowy: true }, { ele: 2700, snowy: true },
+  ]);
+  assert.equal(line.from, 1800);
+  assert.equal(line.top, true);
+  assert.equal(satSnowLine([{ ele: 1000, snowy: null }]), null);
+});
+
+import { sunAlong as sunAlong2, localTop } from '../src/api/plan.js';
+test('Sonne am Gipfel: höchster Punkt in der Nähe zählt', () => {
+  // Grat in Ost-West-Richtung bei 47.0: nördlich fällt das Gelände steil ab
+  const ridge = (lng, lat) => 2000 - Math.abs(lat - 47) * 111320 * 1.5;
+  const top = localTop(ridge, 11, 47.0005);
+  assert.ok(Math.abs(top.lat - 47) < 0.0002);
+  const pts = [{ lng: 11, lat: 46.99, ele: 1000, t: 0 }, { lng: 11, lat: 47.0005, ele: 1990, t: 1.05 }, { lng: 11, lat: 46.99, ele: 1000, t: 2 }];
+  const segs = sunAlong2(pts, new Date('2026-11-02T10:00:00Z'), ridge, { summitT: 1.05 });
+  let st = null; for (const s of segs) if (s.from <= 1.05 + 1e-9) st = s.state;
+  assert.equal(st, 'sun');
+});

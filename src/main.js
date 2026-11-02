@@ -23,6 +23,7 @@ import { boundsOf } from './util/geo.js';
 import { lookupRegion, avalancheReport, avaKey } from './api/avalanche.js';
 import { fetchWebcams } from './api/webcams.js';
 import { scenesFor } from './map/satellite.js';
+import { openPlanView } from './ui/planView.js';
 
 hydrateIcons();
 // Kommt jemand über den Anmeldelink aus der Mail? (vor dem Lesen des Gipfels aus der Adresse)
@@ -83,6 +84,28 @@ const routesPanel = createRoutesPanel($('tab-routes'), {
   onHover: (c) => view.setHover(c),
   onImportFiles: (files) => handleFiles(files),
   onPlan: () => planner.open(),
+  // „Planen“ einer Tour: Startzeit, Wetter zur Uhrzeit, Sonne & Schatten, Schnee
+  onPlanTour: (route, host, back) => {
+    if (sheet.isMobile) sheet.snap('full');
+    const peak = current.peak;
+    return openPlanView(host, {
+      route,
+      peak,
+      getForecast: () => fetchForecast(peak),
+      onBack: back,
+      onHover: (c) => view.setHover(c),
+      snowLayer: {
+        get on() { return view.snowSat; },
+        set(on) {
+          setSnowLayer(on);
+          if (on) {
+            toast('Aktuelles Satellitenbild eingeblendet – Schnee ist weiß.');
+            if (sheet.isMobile) sheet.snap('peek');
+          }
+        },
+      },
+    });
+  },
   onSave: async (tour) => {
     const u = await account.requireLogin('Zum Speichern brauchst du ein kostenloses Konto – nur deine E-Mail, kein Passwort.');
     if (!u) return null;
