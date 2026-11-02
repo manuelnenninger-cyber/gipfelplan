@@ -41,7 +41,7 @@ export const DIFFS = [
 ];
 export const diffOf = (r) => DIFFS.find((d) => d.test(r))?.id || null;
 
-export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave, onPlanTour }) {
+export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave, onPlanTour, colorOf = (r) => r.color }) {
   const saved = new Map(); // Tour-ID → ID in der Datenbank
   let routes = [];
   let imported = [];
@@ -79,7 +79,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
         <input type="file" class="gpx-input" accept=".gpx,application/gpx+xml" multiple hidden />
       </section>`;
   }
-  const planButton = () => `<button class="btn btn-plan">${icon('route')}Eigene Route planen</button>`;
+  const planButton = () => `<button class="btn btn-plan">${icon('route')}Route zeichnen</button>`;
 
   function bindMore() {
     el.querySelector('.btn-plan')?.addEventListener('click', () => onPlan?.());
@@ -102,7 +102,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
     }
     if (!all().length) {
       if (pending) { loading('Berechne Touren …'); return; }
-      message('Keine Route gefunden', 'Im Umkreis gibt es keinen Startpunkt mit Wegverbindung zum Gipfel. Plane eine eigene Route oder importiere eine GPX-Datei.');
+      message('Keine Route gefunden', 'Im Umkreis gibt es keinen Startpunkt mit Wegverbindung zum Gipfel. Zeichne eine eigene Route oder importiere eine GPX-Datei.');
       el.insertAdjacentHTML('beforeend', planButton() + moreTours());
       bindMore();
       return;
@@ -117,7 +117,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       .join('');
     const chips = FILTERS
       .map((f) => ({ ...f, n: byDiff(all()).filter(f.test).length }))
-      .filter((f) => f.id === 'all' || f.n > 0)
+      .filter((f) => (f.id === 'all' ? filter !== 'all' : f.n > 0))
       .map((f) => `<button class="chip" data-filter="${f.id}" aria-pressed="${f.id === filter}">${f.label}<span>${f.n}</span></button>`)
       .join('');
     el.innerHTML = `
@@ -182,7 +182,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
     const loop = r.kind === 'loop' || r.isLoop || r.oneWay;
     const tag = KIND_TAG[r.kind];
     return `
-      <li class="route ${isSel ? 'is-selected' : ''}" style="--rc:${r.color}">
+      <li class="route ${isSel ? 'is-selected' : ''}" style="--rc:${colorOf(r)}">
         <button class="route-row" data-id="${escapeHtml(r.id)}" aria-expanded="${isSel}">
           <span class="route-start">${icon(r.kind === 'import' ? 'download' : r.kind === 'custom' ? 'route' : loop ? 'loop' : r.kind === 'hut' ? 'hut' : r.kind === 'marked' ? 'signpost' : START_ICON[r.start.type] || 'signpost')}</span>
           <span class="route-main">
@@ -234,7 +234,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
         ${huts}
         ${notes.map((n) => `<p class="note">${icon('alert')}<span>${escapeHtml(n)}</span></p>`).join('')}
         ${r.kind === 'marked' ? `<p class="marked-info">${icon('signpost')}<span>${r.symbol ? `Markierung: ${escapeHtml(r.symbol)}. ` : ''}<a href="${r.link}" target="_blank" rel="noopener">Weg bei Waymarked Trails ansehen</a></span></p>` : ''}
-        <button class="btn btn-primary btn-plan-tour">${icon('calendar')}Planen: Startzeit, Wetter, Sonne & Schnee</button>
+        <button class="btn btn-primary btn-plan-tour">${icon('calendar')}Startzeit & Wetter</button>
         <div class="actions">
           ${r.savedId || saved.has(r.id)
             ? `<button class="btn btn-save is-saved" disabled>${icon('bookmarkFill')}Gespeichert</button>`
@@ -310,6 +310,8 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       onShow?.(visible(), selected);
       onSelect?.(tour.id, true);
     },
+    /** neu zeichnen (z. B. andere Farben) – Liste und Karte */
+    refresh() { if (!planning) render(); onShow?.(visible(), selected); },
     get selected() { return selected; },
     get visible() { return visible(); },
   };

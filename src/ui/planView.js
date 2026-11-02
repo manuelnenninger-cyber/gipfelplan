@@ -44,7 +44,7 @@ export function openPlanView(host, { route, peak, getForecast, onBack, onHover, 
   function head() {
     return `<header class="plan-head">
         <button class="plan-back" aria-label="Zurück zu den Touren">${icon('chevronLeft')}Touren</button>
-        <div class="plan-title"><p>Tour planen</p><h3>${escapeHtml(route.title)}</h3></div>
+        <div class="plan-title"><p>Startzeit & Wetter</p><h3>${escapeHtml(route.title)}</h3></div>
       </header>`;
   }
   function bindHead() {

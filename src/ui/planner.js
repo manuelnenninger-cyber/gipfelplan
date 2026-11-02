@@ -1,4 +1,4 @@
-// Eigene Route planen: Punkte auf der Karte antippen (Parkplatz, Hütte, Gipfel …),
+// Route zeichnen: Punkte auf der Karte antippen (Parkplatz, Hütte, Gipfel …),
 // die App verbindet sie über vorhandene Wege. Punkte lassen sich verschieben und löschen.
 import maplibregl from 'maplibre-gl';
 import { planRoute, planTitle } from '../api/routing.js';
@@ -41,7 +41,7 @@ export function createPlanner({ view, getPeak, onAccept, onOpen, onClose }) {
       </div>` : '';
     el.innerHTML = `
       <header class="pl-head">
-        <h2>${icon('route')}Eigene Route</h2>
+        <h2>${icon('route')}Route zeichnen</h2>
         <button class="icon-btn pl-close" aria-label="Planung beenden">${icon('x')}</button>
       </header>
       ${points.length ? `<ol class="pl-points">${points.map((p, i) => `
