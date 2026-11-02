@@ -76,6 +76,12 @@
           <button data-style="topo" aria-pressed="false"><span class="swatch sw-topo"></span>Topo</button>
           <button data-style="satellite" aria-pressed="false"><span class="swatch sw-sat"></span>Satellit</button>
         </div>
+        <div class="pop-poi" id="pop-poi" role="group" aria-label="Auf der Karte hervorheben">
+          <p class="pop-sub">Hervorheben</p>
+          <button data-cat="huts" aria-pressed="false"><span class="pf-dot pf-huts" data-icon="hut"></span>Hütten</button>
+          <button data-cat="bivouacs" aria-pressed="false"><span class="pf-dot pf-bivouacs" data-icon="tent"></span>Biwaks</button>
+          <button data-cat="webcams" aria-pressed="false"><span class="pf-dot pf-webcams" data-icon="camera"></span>Webcams</button>
+        </div>
         <label class="switch-row">
           <span>Höhenlinien</span>
           <input type="checkbox" id="toggle-contours" role="switch" checked />
@@ -96,6 +102,10 @@
         <div class="slope-legend" id="snow-legend" hidden>
           <span class="sl-hint" id="snow-legend-text">Suche neueste Aufnahme …</span>
         </div>
+        <label class="switch-row">
+          <span>Farbe nach Schwierigkeit</span>
+          <input type="checkbox" id="toggle-diffcolor" role="switch" />
+        </label>
         <label class="switch-row">
           <span>Markierte Wanderwege</span>
           <input type="checkbox" id="toggle-trails" role="switch" />

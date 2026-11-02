@@ -205,8 +205,8 @@ export function createMapView(container) {
         layout: { 'line-join': 'round', 'line-cap': 'round', 'line-sort-key': ['get', 'sort'] },
         paint: {
           'line-color': '#ffffff',
-          'line-width': ['case', ['get', 'selected'], 9, 6],
-          'line-opacity': ['case', ['get', 'dim'], 0.5, 0.95],
+          'line-width': ['case', ['get', 'selected'], 9, ['get', 'dim'], 4.5, 6],
+          'line-opacity': ['case', ['get', 'dim'], 0.35, 0.95],
         },
       });
       map.addLayer({
@@ -214,8 +214,8 @@ export function createMapView(container) {
         layout: { 'line-join': 'round', 'line-cap': 'round', 'line-sort-key': ['get', 'sort'] },
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': ['case', ['get', 'selected'], 5.5, 3.5],
-          'line-opacity': ['case', ['get', 'dim'], 0.45, 1],
+          'line-width': ['case', ['get', 'selected'], 6, ['get', 'dim'], 2.5, 3.5],
+          'line-opacity': ['case', ['get', 'dim'], 0.35, 1],
         },
       });
       map.addLayer({
@@ -229,8 +229,8 @@ export function createMapView(container) {
           'circle-color': ['get', 'color'],
           'circle-stroke-color': '#fff',
           'circle-stroke-width': 2.5,
-          'circle-opacity': ['case', ['get', 'dim'], 0.5, 1],
-          'circle-stroke-opacity': ['case', ['get', 'dim'], 0.5, 1],
+          'circle-opacity': ['case', ['get', 'dim'], 0.35, 1],
+          'circle-stroke-opacity': ['case', ['get', 'dim'], 0.35, 1],
         },
       });
       // Hütten und Parkplätze: Kartenebenen statt HTML-Elementen (flüssiger), anklickbar

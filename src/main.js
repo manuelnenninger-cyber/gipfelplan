@@ -2,7 +2,7 @@ import { hydrateIcons } from './ui/icons.js';
 import { createMapView } from './map/map.js';
 import { createWeatherOverlay } from './map/weatherOverlay.js';
 import { setupSearch } from './ui/search.js';
-import { createRoutesPanel } from './ui/routes.js';
+import { createRoutesPanel, diffOf } from './ui/routes.js';
 import { createForecastPanel } from './ui/forecast.js';
 import { createWeatherBar } from './ui/weatherbar.js';
 import { createSheet } from './ui/sheet.js';
@@ -79,6 +79,10 @@ async function toggleWeather(on, date, { layer } = {}) {
 
 // --- Panel -------------------------------------------------------------------
 const panel = $('panel');
+// Touren auf Karte und Liste nach Schwierigkeit färben (Kartenmenü)
+let colorByDiff = false;
+const DIFF_COLOR = { easy: '#2fb350', medium: '#f0a020', hard: '#e5484d' };
+const diffColor = (r) => DIFF_COLOR[diffOf(r)] || '#8a94a8';
 const routesPanel = createRoutesPanel($('tab-routes'), {
   onSelect: (id) => {
     if (id) view.selectRoute(id);
@@ -87,6 +91,7 @@ const routesPanel = createRoutesPanel($('tab-routes'), {
   onHover: (c) => view.setHover(c),
   onImportFiles: (files) => handleFiles(files),
   onPlan: () => planner.open(),
+  colorOf: (r) => (colorByDiff ? diffColor(r) : r.color),
   // „Planen“ einer Tour: Startzeit, Wetter zur Uhrzeit, Sonne & Schatten, Schnee
   onPlanTour: (route, host, back) => {
     if (sheet.isMobile) sheet.snap('full');
@@ -110,7 +115,7 @@ const routesPanel = createRoutesPanel($('tab-routes'), {
     });
   },
   onSave: async (tour) => {
-    const u = await account.requireLogin('Zum Speichern brauchst du ein kostenloses Konto – nur deine E-Mail, kein Passwort.');
+    const u = await account.requireLogin('Zum Speichern brauchst du ein kostenloses Konto.');
     if (!u) return null;
     try {
       const s = await saveTour(tour, current.peak);
@@ -123,7 +128,7 @@ const routesPanel = createRoutesPanel($('tab-routes'), {
   },
   // Karte zeigt die gefilterten Touren
   onShow: (list, sel) => {
-    view.setRoutes(list);
+    view.setRoutes(colorByDiff ? list.map((r) => ({ ...r, color: diffColor(r) })) : list);
     if (sel) view.selectRoute(sel, { fit: false });
   },
 });
@@ -217,7 +222,7 @@ let countTimer = 0;
 view.map.on('moveend', () => { clearTimeout(countTimer); countTimer = setTimeout(updatePoiFilter, 150); });
 function setHighlight(cat) {
   highlight = cat;
-  poiFilter.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.cat === cat));
+  document.querySelectorAll('#poi-filter button, #pop-poi button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.cat === cat));
   view.setHighlight(cat);
   if (cat && current.peak) view.showAll(cat);
   if (cat && sheet.isMobile && !panel.hidden) sheet.snap('peek', { reason: 'filter' });
@@ -225,7 +230,7 @@ function setHighlight(cat) {
   explore.setActive(cat);
   updatePoiFilter();
 }
-poiFilter.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => setHighlight(highlight === b.dataset.cat ? null : b.dataset.cat)));
+document.querySelectorAll('#poi-filter button, #pop-poi button').forEach((b) => b.addEventListener('click', () => setHighlight(highlight === b.dataset.cat ? null : b.dataset.cat)));
 
 // --- Eigene Route planen ---------------------------------------------------------
 const planner = createPlanner({
@@ -475,6 +480,10 @@ function setSnowLayer(on) {
   }
 }
 $('toggle-snow').addEventListener('change', (e) => setSnowLayer(e.target.checked));
+$('toggle-diffcolor').addEventListener('change', (e) => {
+  colorByDiff = e.target.checked;
+  routesPanel.refresh();
+});
 view.map.on('moveend', () => { if (view.snowSat) updateSnowLegend(); });
 
 document.addEventListener('keydown', (e) => {
