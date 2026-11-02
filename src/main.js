@@ -22,6 +22,7 @@ import { fmtInt } from './util/format.js';
 import { boundsOf } from './util/geo.js';
 import { lookupRegion, avalancheReport, avaKey } from './api/avalanche.js';
 import { fetchWebcams } from './api/webcams.js';
+import { scenesFor } from './map/satellite.js';
 
 hydrateIcons();
 // Kommt jemand über den Anmeldelink aus der Mail? (vor dem Lesen des Gipfels aus der Adresse)
@@ -403,6 +404,28 @@ $('toggle-slope').addEventListener('change', (e) => {
   $('slope-legend').hidden = !on;
   if (on && view.map.getZoom() < view.slopeMinZoom) toast('Hangneigung: zum Anzeigen etwas weiter hineinzoomen.');
 });
+// Schnee: aktuelles Satellitenbild (Sentinel-2/Landsat); Legende nennt das Aufnahmedatum
+const shortDate = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short' });
+async function updateSnowLegend() {
+  if (!view.snowSat) return;
+  const c = view.map.getCenter();
+  const list = await scenesFor(c.lng, c.lat).catch(() => []);
+  $('snow-legend-text').textContent = list.length
+    ? `Neueste Aufnahme: ${shortDate.format(new Date(`${list[0].date}T12:00:00`))} (Sentinel-2/Landsat, ca. 30 m). Lücken füllen ältere Bilder. Achtung: Wolken sind auch weiß.`
+    : 'In den letzten Tagen gibt es hier keine Aufnahme.';
+}
+function setSnowLayer(on) {
+  $('toggle-snow').checked = on;
+  view.setSnowSat(on);
+  $('snow-legend').hidden = !on;
+  if (on) {
+    $('snow-legend-text').textContent = 'Suche neueste Aufnahme …';
+    updateSnowLegend();
+    if (view.map.getZoom() < 7) toast('Schnee: zum Anzeigen weiter hineinzoomen.');
+  }
+}
+$('toggle-snow').addEventListener('change', (e) => setSnowLayer(e.target.checked));
+view.map.on('moveend', () => { if (view.snowSat) updateSnowLegend(); });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {

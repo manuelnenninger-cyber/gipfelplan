@@ -10,6 +10,7 @@ const LIMITS = { [TILES]: 6000, [DATA]: 400 };
 const TILE_HOSTS = [
   'tiles.openfreemap.org', 'tile.opentopomap.org', 'a.tile.opentopomap.org', 'b.tile.opentopomap.org', 'c.tile.opentopomap.org',
   'server.arcgisonline.com', 's3.amazonaws.com', 'tile.waymarkedtrails.org', 'cdn.jsdelivr.net',
+  'gibs.earthdata.nasa.gov', // Satellitenbilder: Datum steht in der Adresse, ändern sich nicht
 ];
 // Daten: erst Netz (aktuell), ohne Empfang die letzte Antwort
 const DATA_HOSTS = [

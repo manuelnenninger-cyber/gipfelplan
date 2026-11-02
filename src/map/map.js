@@ -9,8 +9,10 @@ import { addOutdoorLayers, styleOutdoor, addMapIcon, REBUILT } from './outdoorLa
 import { openPoiCard, closePoiCard, openWebcamCard } from '../ui/poiCard.js';
 import { PLAN_COLOR } from '../api/routing.js';
 import { registerSlopeProtocol, SLOPE_PROTOCOL, SLOPE_MINZOOM } from './slope.js';
+import { registerSatelliteProtocol, HLS_PROTOCOL, HLS_MAXZOOM } from './satellite.js';
 
 registerSlopeProtocol(maplibregl);
+registerSatelliteProtocol(maplibregl);
 
 // Eigene Quellen/Ebenen beginnen mit "gp-" und überleben Stilwechsel.
 // Ebenen mit "gp-wx" verwaltet das Wetter-Overlay selbst.
@@ -79,6 +81,7 @@ export function createMapView(container) {
     trails: false,
     contours: true,
     slope: false,
+    snowSat: false,
     routes: [],
     selected: null,
     flat: false,
@@ -158,6 +161,16 @@ export function createMapView(container) {
     }
     if (!map.getLayer('gp-trails')) {
       map.addLayer({ id: 'gp-trails', type: 'raster', source: 'gp-trails', paint: { 'raster-opacity': 0.85 }, layout: { visibility: 'none' } }, firstSymbol);
+    }
+    // Aktuelles Satellitenbild (Schnee): unter Relief und Beschriftung, lädt erst, wenn eingeschaltet
+    if (!map.getSource('gp-hls')) {
+      map.addSource('gp-hls', {
+        type: 'raster', tiles: [`${HLS_PROTOCOL}://{z}/{x}/{y}`], tileSize: 256, minzoom: 7, maxzoom: HLS_MAXZOOM,
+        attribution: 'Satellitenbild: <a href="https://www.earthdata.nasa.gov/data/projects/hls">NASA HLS</a> (Sentinel-2, Landsat)',
+      });
+    }
+    if (!map.getLayer('gp-hls')) {
+      map.addLayer({ id: 'gp-hls', type: 'raster', source: 'gp-hls', minzoom: 7, layout: { visibility: 'none' }, paint: { 'raster-fade-duration': 150 } }, 'gp-hillshade');
     }
     // Hangneigung: aus den Geländekacheln im Browser berechnet (lädt erst, wenn eingeschaltet)
     if (!map.getSource('gp-slope')) {
@@ -344,7 +357,8 @@ export function createMapView(container) {
   }
 
   function applyVisibility() {
-    if (map.getLayer('gp-hillshade')) map.setLayoutProperty('gp-hillshade', 'visibility', state.base === 'standard' ? 'visible' : 'none');
+    if (map.getLayer('gp-hillshade')) map.setLayoutProperty('gp-hillshade', 'visibility', state.base === 'standard' && !state.snowSat ? 'visible' : 'none');
+    if (map.getLayer('gp-hls')) map.setLayoutProperty('gp-hls', 'visibility', state.snowSat ? 'visible' : 'none');
     if (map.getLayer('gp-trails')) map.setLayoutProperty('gp-trails', 'visibility', state.trails ? 'visible' : 'none');
     if (map.getLayer('gp-slope')) map.setLayoutProperty('gp-slope', 'visibility', state.slope ? 'visible' : 'none');
   }
@@ -580,6 +594,8 @@ export function createMapView(container) {
     setTrails(on) { state.trails = on; applyVisibility(); },
 
     setSlope(on) { state.slope = on; applyVisibility(); },
+    setSnowSat(on) { state.snowSat = on; applyVisibility(); },
+    get snowSat() { return state.snowSat; },
     get slopeMinZoom() { return SLOPE_MINZOOM; },
 
     setContours(on) { state.contours = on; styleOutdoor(map, { base: state.base, contours: on }); },
