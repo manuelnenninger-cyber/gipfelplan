@@ -494,3 +494,32 @@ test('Offline: Routen schlank speichern', () => {
   assert.equal(s.coords[1][2], null);
   assert.equal(s.title, 'T');
 });
+
+import { terrarium, tileResolution, slopeDegrees, slopeColor, slopePixels } from '../src/map/slope.js';
+
+test('Hangneigung: Neigung aus Geländemodell', () => {
+  assert.equal(terrarium(128, 0, 0), 0);
+  assert.equal(terrarium(129, 44, 0), 300);
+  // Zoom 13 am Äquator ≈ 19,1 m pro Pixel; in den Alpen kleiner
+  assert.ok(Math.abs(tileResolution(13, 4095) - 19.1) < 0.1);
+  assert.ok(tileResolution(13, 2900) < 14);
+  // schiefe Ebene: 10 m Anstieg je Pixel bei 10 m Pixelgröße → 45°
+  const size = 5;
+  const elev = new Float32Array(size * size).map((_, p) => (p % size) * 10);
+  const deg = slopeDegrees(elev, size, 10);
+  assert.ok(Math.abs(deg[12] - 45) < 1e-6);
+  // flach → 0°
+  assert.equal(slopeDegrees(new Float32Array(9).fill(500), 3, 10)[4], 0);
+});
+
+test('Hangneigung: Farbklassen wie Lawinenkarten', () => {
+  assert.equal(slopeColor(29.9)[3], 0);
+  assert.deepEqual(slopeColor(32), [242, 214, 0, 255]);
+  assert.deepEqual(slopeColor(37), [243, 146, 0, 255]);
+  assert.deepEqual(slopeColor(41), [226, 0, 26, 255]);
+  assert.deepEqual(slopeColor(60), [140, 40, 160, 255]);
+  // 2×2 Kachel aus Terrarium-Pixeln: flach → durchsichtig
+  const rgba = new Uint8ClampedArray(16).fill(128);
+  for (let p = 0; p < 4; p++) rgba[p * 4 + 3] = 255;
+  assert.equal(slopePixels(rgba, 2, 13, 2900)[3], 0);
+});

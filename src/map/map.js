@@ -8,6 +8,9 @@ import { typeLabel } from '../api/osm.js';
 import { addOutdoorLayers, styleOutdoor, addMapIcon, REBUILT } from './outdoorLayers.js';
 import { openPoiCard, closePoiCard, openWebcamCard } from '../ui/poiCard.js';
 import { PLAN_COLOR } from '../api/routing.js';
+import { registerSlopeProtocol, SLOPE_PROTOCOL, SLOPE_MINZOOM } from './slope.js';
+
+registerSlopeProtocol(maplibregl);
 
 // Eigene Quellen/Ebenen beginnen mit "gp-" und überleben Stilwechsel.
 // Ebenen mit "gp-wx" verwaltet das Wetter-Overlay selbst.
@@ -75,6 +78,7 @@ export function createMapView(container) {
     terrain3d: false,
     trails: false,
     contours: true,
+    slope: false,
     routes: [],
     selected: null,
     flat: false,
@@ -154,6 +158,20 @@ export function createMapView(container) {
     }
     if (!map.getLayer('gp-trails')) {
       map.addLayer({ id: 'gp-trails', type: 'raster', source: 'gp-trails', paint: { 'raster-opacity': 0.85 }, layout: { visibility: 'none' } }, firstSymbol);
+    }
+    // Hangneigung: aus den Geländekacheln im Browser berechnet (lädt erst, wenn eingeschaltet)
+    if (!map.getSource('gp-slope')) {
+      map.addSource('gp-slope', {
+        type: 'raster', tiles: [`${SLOPE_PROTOCOL}://{z}/{x}/{y}`], tileSize: 256, minzoom: SLOPE_MINZOOM, maxzoom: 13,
+        attribution: 'Hangneigung aus AWS Terrain Tiles',
+      });
+    }
+    if (!map.getLayer('gp-slope')) {
+      map.addLayer({
+        id: 'gp-slope', type: 'raster', source: 'gp-slope', minzoom: SLOPE_MINZOOM,
+        layout: { visibility: 'none' },
+        paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.5, 15, 0.42] },
+      }, firstSymbol);
     }
     if (!map.getSource('gp-huts')) map.addSource('gp-huts', { type: 'geojson', data: hutData });
     addMapIcon(map, 'gp-hut');
@@ -328,6 +346,7 @@ export function createMapView(container) {
   function applyVisibility() {
     if (map.getLayer('gp-hillshade')) map.setLayoutProperty('gp-hillshade', 'visibility', state.base === 'standard' ? 'visible' : 'none');
     if (map.getLayer('gp-trails')) map.setLayoutProperty('gp-trails', 'visibility', state.trails ? 'visible' : 'none');
+    if (map.getLayer('gp-slope')) map.setLayoutProperty('gp-slope', 'visibility', state.slope ? 'visible' : 'none');
   }
 
   map.on('style.load', () => {
@@ -559,6 +578,9 @@ export function createMapView(container) {
     },
 
     setTrails(on) { state.trails = on; applyVisibility(); },
+
+    setSlope(on) { state.slope = on; applyVisibility(); },
+    get slopeMinZoom() { return SLOPE_MINZOOM; },
 
     setContours(on) { state.contours = on; styleOutdoor(map, { base: state.base, contours: on }); },
 

@@ -397,6 +397,12 @@ popover.querySelectorAll('[data-style]').forEach((b) => b.addEventListener('clic
 }));
 $('toggle-trails').addEventListener('change', (e) => view.setTrails(e.target.checked));
 $('toggle-contours').addEventListener('change', (e) => view.setContours(e.target.checked));
+$('toggle-slope').addEventListener('change', (e) => {
+  const on = e.target.checked;
+  view.setSlope(on);
+  $('slope-legend').hidden = !on;
+  if (on && view.map.getZoom() < view.slopeMinZoom) toast('Hangneigung: zum Anzeigen etwas weiter hineinzoomen.');
+});
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
