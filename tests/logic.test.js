@@ -649,3 +649,17 @@ test('Sonne am Gipfel: höchster Punkt in der Nähe zählt', () => {
   let st = null; for (const s of segs) if (s.from <= 1.05 + 1e-9) st = s.state;
   assert.equal(st, 'sun');
 });
+
+import { summaryItems } from '../src/ui/peakSummary.js';
+test('Gipfel-Zusammenfassung: Wetter, Lawinen, Schnee', () => {
+  const day = (d, level) => ({ date: new Date(d), rating: { level } });
+  const fc = { days: [day('2026-01-10T00:00:00', 'poor'), day('2026-01-11T00:00:00', 'good')] };
+  const morning = new Date('2026-01-10T08:00:00'), evening = new Date('2026-01-10T19:00:00');
+  assert.equal(summaryItems({ fc, now: morning })[0].text, 'Heute ungünstig');
+  assert.equal(summaryItems({ fc, now: evening })[0].text, 'Morgen gut');
+  const ava = { reports: { '2026-01-11': { state: 'rated', level: 3, high: 3, low: 2, boundM: 2000 } } };
+  const items = summaryItems({ fc, ava, peak: { ele: 1500 }, snow: { from: 1800, share: 0.6 }, now: evening });
+  assert.deepEqual(items.map((i) => i.text), ['Morgen gut', 'Lawinen 2', 'Schnee ab 1.800 m']);
+  assert.equal(summaryItems({ snow: { from: null, share: 0 }, now: evening })[0].text, 'schneefrei');
+  assert.equal(summaryItems({ now: evening }).length, 0);
+});

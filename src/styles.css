@@ -1045,3 +1045,16 @@ html.is-offline .search-field::after {
 .snow-col small { font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .plan-snow-btn { width: 100%; margin-top: 12px; }
 .plan-snow-btn[aria-pressed="true"] { background: var(--fill); color: var(--text); }
+
+/* Zusammenfassung unter dem Gipfelnamen */
+.peak-sum {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 7px; margin-top: 7px; padding: 5px 10px 5px 8px;
+  border-radius: 999px; background: var(--fill); font-size: 13px; font-weight: 600; color: var(--text); text-align: left;
+  cursor: pointer; animation: fade-in 0.25s ease;
+}
+.peak-sum[hidden] { display: none; }
+.peak-sum:hover { background: var(--fill-2); }
+.ps-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ps-item i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); }
+.ps-item .icon { width: 13px; height: 13px; color: #6aa8e8; }
+.ps-sep { color: var(--text-3); font-weight: 400; }

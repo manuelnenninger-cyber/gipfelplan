@@ -24,6 +24,9 @@ import { lookupRegion, avalancheReport, avaKey } from './api/avalanche.js';
 import { fetchWebcams } from './api/webcams.js';
 import { scenesFor } from './map/satellite.js';
 import { openPlanView } from './ui/planView.js';
+import { summaryItems, summaryHtml } from './ui/peakSummary.js';
+import { buildItinerary, samplePoints, satSnowLine } from './api/plan.js';
+import { snowFromSatellite } from './map/satellite.js';
 
 hydrateIcons();
 // Kommt jemand über den Anmeldelink aus der Mail? (vor dem Lesen des Gipfels aus der Adresse)
@@ -150,6 +153,7 @@ async function loadAvalanche(peak, stale) {
     if (stale()) return;
     current.ava = { region, reports };
     forecastPanel.setAvalanche(current.ava);
+    renderSummary();
   } catch (e) {
     if (!stale()) forecastPanel.setAvalanche({ error: e.message });
   }
@@ -238,6 +242,27 @@ const planner = createPlanner({
   },
 });
 
+// --- Ein Satz Zusammenfassung unter dem Gipfelnamen -----------------------------------
+function renderSummary() {
+  const el = $('peak-sum');
+  const items = current.peak ? summaryItems({ fc: current.fc, ava: current.ava, snow: current.snow, peak: current.peak }) : [];
+  el.hidden = !items.length;
+  el.innerHTML = summaryHtml(items);
+}
+$('peak-sum').addEventListener('click', () => {
+  setTab('weather');
+  if (isDesktop()) toggleWeather(true);
+  else if (sheet.state === 'peek') sheet.snap('half');
+});
+/** Schneegrenze am Gipfel aus dem Satellitenbild (entlang der schnellsten Tour) */
+function summarySnow(peak, route, stale) {
+  if (navigator.onLine === false || !route) return;
+  const it = buildItinerary(route, peak);
+  snowFromSatellite(samplePoints(it.points, it.summitT, 20))
+    .then((r) => { if (!stale()) { current.snow = satSnowLine(r.points); renderSummary(); } })
+    .catch(() => {});
+}
+
 function updatePeakHeader(peak) {
   $('peak-name').textContent = peak.name;
   $('peak-meta').textContent = [peak.ele ? `${fmtInt(peak.ele)} m` : null, peak.region || null].filter(Boolean).join(', ');
@@ -273,6 +298,7 @@ async function selectPeak(input) {
   panel.hidden = false;
   setTab('routes');
   updatePeakHeader(peak);
+  renderSummary();
   sheet.snap('half');
   search.setValue(peak.name);
   history.replaceState(null, '', `#${peak.lat.toFixed(5)},${peak.lng.toFixed(5)},${encodeURIComponent(peak.name)}`);
@@ -298,7 +324,7 @@ async function selectPeak(input) {
     if (stale()) return;
     if (snap?.peak.ele && !peak.ele) { peak.ele = snap.peak.ele; updatePeakHeader(peak); }
     fetchForecast(peak, { signal })
-      .then((fc) => { if (!stale()) forecastPanel.set(peak, fc); })
+      .then((fc) => { if (!stale()) { forecastPanel.set(peak, fc); current.fc = fc; renderSummary(); } })
       .catch((e) => { if (e.name !== 'AbortError') forecastPanel.error('Ohne Empfang und noch keine Prognose auf dem Gerät.'); });
     if (!showSnapshot(peak, snap, 'Ohne Empfang')) {
       routesPanel.message('Ohne Empfang', 'Für diesen Gipfel ist noch nichts auf dem Gerät gespeichert. Öffne ihn einmal mit Netz – danach ist er auch ohne Empfang verfügbar.');
@@ -316,7 +342,7 @@ async function selectPeak(input) {
     if (stale()) return;
     if (!peak.ele && ele) { peak.ele = ele; updatePeakHeader(peak); }
     return fetchForecast(peak, { signal })
-      .then((fc) => { if (!stale()) forecastPanel.set(peak, fc); })
+      .then((fc) => { if (!stale()) { forecastPanel.set(peak, fc); current.fc = fc; renderSummary(); } })
       .catch((e) => { if (e.name !== 'AbortError') forecastPanel.error(e.message); });
   });
 
@@ -352,6 +378,7 @@ async function selectPeak(input) {
           const [[w, s], [e, n]] = boundsOf(routes.flatMap((r) => r.coords));
           overlay.setFocus({ w, s, e, n }); // feines Wetterraster über alle Touren
           rememberPeak(peak, routes, places); // für unterwegs ohne Empfang
+          if (!current.snow) summarySnow(peak, routes[0], stale);
         }
       },
     });
