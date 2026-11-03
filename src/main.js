@@ -18,13 +18,15 @@ import { loadSurroundings, demElevation } from './api/osm.js';
 import { suggestRoutes } from './api/routing.js';
 import { fetchForecast } from './api/weather.js';
 import { importGPXFile } from './api/gpx.js';
-import { fmtInt } from './util/format.js';
+import { fmtInt, fmtDuration, fmtKm } from './util/format.js';
 import { boundsOf } from './util/geo.js';
 import { lookupRegion, avalancheReport, avaKey } from './api/avalanche.js';
 import { fetchWebcams } from './api/webcams.js';
 import { scenesFor } from './map/satellite.js';
 import { openPlanView } from './ui/planView.js';
 import { summaryItems, summaryHtml } from './ui/peakSummary.js';
+import { createShare, loadShare, shareUrl } from './api/share.js';
+import { openShareDialog } from './ui/shareDialog.js';
 import { buildItinerary, samplePoints, satSnowLine } from './api/plan.js';
 import { snowFromSatellite } from './map/satellite.js';
 
@@ -91,6 +93,7 @@ const routesPanel = createRoutesPanel($('tab-routes'), {
   onHover: (c) => view.setHover(c),
   onImportFiles: (files) => handleFiles(files),
   onPlan: () => planner.open(),
+  onShare: (route, peak) => shareTour(route, peak),
   colorOf: (r) => (colorByDiff ? diffColor(r) : r.color),
   // „Planen“ einer Tour: Startzeit, Wetter zur Uhrzeit, Sonne & Schatten, Schnee
   onPlanTour: (route, host, back) => {
@@ -551,6 +554,24 @@ if (loginRedirect?.ok && loginRedirect.type === 'recovery') setTimeout(() => acc
 else if (loginRedirect?.ok) setTimeout(() => toast(loginRedirect.type === 'signup' ? 'E-Mail bestätigt – du bist angemeldet.' : 'Du bist angemeldet.'), 400);
 else if (loginRedirect?.error) setTimeout(() => toast(`Anmeldung fehlgeschlagen: ${loginRedirect.error}`), 400);
 
+// --- Touren teilen ------------------------------------------------------------------------
+const shareIds = new Map(); // Tour → Link-ID (nicht doppelt anlegen)
+function shareTour(route, peak) {
+  const loop = route.kind === 'loop' || route.isLoop || route.oneWay;
+  const summary = [route.sac ? `T${route.sac}` : null, fmtDuration(loop ? route.timeTotal : route.timeUp), `↑ ${fmtInt(Math.round(route.up))} m`, fmtKm(route.length)].filter(Boolean).join(' · ');
+  const title = peak?.name && !route.title.includes(peak.name) ? `${peak.name}: ${route.title}` : route.title;
+  openShareDialog({
+    title,
+    summary,
+    toast,
+    getUrl: async () => {
+      if (route.shareId) return shareUrl(route.shareId);
+      if (!shareIds.has(route.id)) shareIds.set(route.id, createShare(route, peak).catch((e) => { shareIds.delete(route.id); throw e; }));
+      return shareUrl(await shareIds.get(route.id));
+    },
+  });
+}
+
 function openSavedTour(t) {
   const p = t.peak;
   const same = current.peak && p && Math.abs(current.peak.lat - p.lat) < 1e-4 && Math.abs(current.peak.lng - p.lng) < 1e-4;
@@ -565,7 +586,23 @@ function openSavedTour(t) {
 }
 
 const m = location.hash.match(/^#(-?\d+\.\d+),(-?\d+\.\d+),(.+)$/);
-if (m) {
+const sharedId = new URLSearchParams(location.search).get('t');
+if (sharedId) {
+  // Geteilte Tour über einen Link (/t/<id> leitet auf /?t=<id> weiter)
+  history.replaceState(null, '', location.pathname);
+  const shareP = loadShare(sharedId); // gleich laden, nicht erst nach der Karte
+  shareP.catch(() => {});
+  view.map.once('load', async () => {
+    try {
+      const t = await shareP;
+      if (!t) { toast('Diese geteilte Tour gibt es nicht mehr.'); return; }
+      openSavedTour(t);
+      setTimeout(() => toast(`Geteilte Tour: ${t.title}`), 600);
+    } catch (e) {
+      toast(`Tour konnte nicht geladen werden: ${e.message}`);
+    }
+  });
+} else if (m) {
   view.map.once('load', () => selectPeak({
     lat: +m[1], lng: +m[2], name: decodeURIComponent(m[3]), ele: null, region: '', osmType: null, osmId: null,
   }));

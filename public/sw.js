@@ -1,6 +1,6 @@
 // Gipfelplan – Service Worker: App ohne Empfang starten, Karten und Daten aus dem Zwischenspeicher.
 // Bei Änderungen an der Seite VERSION erhöhen (nur der App-Speicher wird erneuert; Karten und Daten bleiben).
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL = `gp-shell-${VERSION}`;   // Seite, Skripte, Stile, Symbole
 const TILES = 'gp-tiles-v1';   // Kartenkacheln, Schriften, Geländedaten
 const DATA = 'gp-data-v1';     // Wetter, Routen, Suche (letzte Antworten)
@@ -52,11 +52,13 @@ self.addEventListener('fetch', (e) => {
 
   // Seite selbst: aktuelle Version, bei schlechtem Netz nach 4 s die gespeicherte
   if (req.mode === 'navigate') {
+    // Nur die App selbst merken; Linkseiten geteilter Touren (/t/…) leiten nur weiter
+    if (url.origin === self.location.origin && url.pathname.startsWith('/t/')) return;
     e.respondWith(networkFirst(req, SHELL, 4000, '/'));
     return;
   }
   if (url.origin === self.location.origin) {
-    if (url.pathname.startsWith('/api/webcams')) return; // Bild-Adressen laufen ohnehin ab
+    if (url.pathname.startsWith('/api/')) return; // Webcams (Adressen laufen ab), Vorschaubilder
     if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) { e.respondWith(cacheFirst(req, SHELL)); return; }
     if (url.pathname.startsWith('/proxy/')) { e.respondWith(networkFirst(req, DATA, 12000)); return; }
     e.respondWith(networkFirst(req, SHELL, 4000));

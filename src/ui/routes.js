@@ -41,7 +41,7 @@ export const DIFFS = [
 ];
 export const diffOf = (r) => DIFFS.find((d) => d.test(r))?.id || null;
 
-export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave, onPlanTour, colorOf = (r) => r.color }) {
+export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave, onPlanTour, onShare, colorOf = (r) => r.color }) {
   const saved = new Map(); // Tour-ID → ID in der Datenbank
   let routes = [];
   let imported = [];
@@ -149,6 +149,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
       const prof = el.querySelector('.profile');
       if (r && prof) renderProfile(prof, r, { onHover });
       el.querySelector('.btn-gpx')?.addEventListener('click', () => downloadGPX(r));
+      el.querySelector('.btn-share')?.addEventListener('click', () => onShare?.(r, peak));
       el.querySelector('.btn-plan-tour')?.addEventListener('click', () => openPlan(r.id));
       el.querySelector('.btn-save:not(.is-saved)')?.addEventListener('click', async (e) => {
         const b = e.currentTarget;
@@ -180,7 +181,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
   function row(r) {
     const isSel = r.id === selected;
     const loop = r.kind === 'loop' || r.isLoop || r.oneWay;
-    const tag = KIND_TAG[r.kind];
+    const tag = r.shared ? 'Geteilt' : KIND_TAG[r.kind];
     return `
       <li class="route ${isSel ? 'is-selected' : ''}" style="--rc:${colorOf(r)}">
         <button class="route-row" data-id="${escapeHtml(r.id)}" aria-expanded="${isSel}">
@@ -239,6 +240,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
           ${r.savedId || saved.has(r.id)
             ? `<button class="btn btn-save is-saved" disabled>${icon('bookmarkFill')}Gespeichert</button>`
             : `<button class="btn btn-save">${icon('bookmark')}Speichern</button>`}
+          <button class="btn btn-share">${icon('share')}Teilen</button>
           <button class="btn btn-gpx">${icon('download')}GPX</button>
           ${r.kind === 'import' || r.kind === 'custom' ? '<button class="btn btn-remove">Entfernen</button>' : ''}
         </div>

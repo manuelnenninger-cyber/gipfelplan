@@ -663,3 +663,60 @@ test('Gipfel-Zusammenfassung: Wetter, Lawinen, Schnee', () => {
   assert.equal(summaryItems({ snow: { from: null, share: 0 }, now: evening })[0].text, 'schneefrei');
   assert.equal(summaryItems({ now: evening }).length, 0);
 });
+
+import { deflateSync } from 'node:zlib';
+import { decodePng, encodeJpeg, createCanvas, huffmanTable } from '../server/raster.js';
+import { shareTexts, fitZoom, ID_RE } from '../server/share.js';
+import { thin } from '../src/api/share.js';
+
+function makePng(w, h, type, rows, palette) {
+  const chunk = (name, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    return Buffer.concat([len, Buffer.from(name, 'ascii'), data, Buffer.alloc(4)]); // CRC wird beim Lesen nicht geprüft
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = type;
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr),
+    ...(palette ? [chunk('PLTE', Buffer.from(palette))] : []), chunk('IDAT', deflateSync(Buffer.from(rows.flat()))), chunk('IEND', Buffer.alloc(0))]);
+}
+
+test('Teilen: PNG lesen (Filter, Palette)', () => {
+  // 2×2 RGB: Zeile 1 mit Filter „Sub“, Zeile 2 mit Filter „Up“
+  const rgb = decodePng(makePng(2, 2, 2, [[1, 10, 20, 30, 5, 5, 5], [2, 1, 1, 1, 2, 2, 2]]));
+  assert.deepEqual([...rgb.data], [10, 20, 30, 255, 15, 25, 35, 255, 11, 21, 31, 255, 17, 27, 37, 255]);
+  const pal = decodePng(makePng(2, 1, 3, [[0, 1, 0]], [0, 0, 0, 200, 100, 50]));
+  assert.deepEqual([...pal.data], [200, 100, 50, 255, 0, 0, 0, 255]);
+});
+
+test('Teilen: JPEG und Huffman-Tabellen', () => {
+  const t = huffmanTable(Array.from({ length: 256 }, (_, i) => (i < 200 ? 1 + ((i * 7919) % 1000) : 0)));
+  assert.ok(t.bits.reduce((a, b) => a + b, 0) === 200);
+  assert.ok(Math.max(...Array.from(t.len)) <= 16);
+  // präfixfrei: kein Code ist Anfang eines anderen
+  const codes = t.vals.map((v) => t.code[v].toString(2).padStart(t.len[v], '0'));
+  for (const a of codes) for (const b of codes) if (a !== b) assert.ok(!b.startsWith(a));
+  assert.ok(!codes.some((c) => /^1+$/.test(c)));
+  const cv = createCanvas(37, 21, [200, 120, 40]);
+  const jpg = encodeJpeg(cv, 75);
+  assert.equal(jpg.readUInt16BE(0), 0xffd8);
+  assert.equal(jpg.readUInt16BE(jpg.length - 2), 0xffd9);
+  const sof = jpg.indexOf(Buffer.from([0xff, 0xc0]));
+  assert.equal(jpg.readUInt16BE(sof + 5), 21);
+  assert.equal(jpg.readUInt16BE(sof + 7), 37);
+});
+
+test('Teilen: Vorschautexte, Zoom, Ausdünnen', () => {
+  const s = { title: 'Über Knorrhütte', kind: 'hut', peak: { name: 'Zugspitze' }, stats: { sac: 4, timeUp: 5.08, up: 964, length: 7200 } };
+  const t = shareTexts(s);
+  assert.equal(t.title, 'Zugspitze: Über Knorrhütte');
+  assert.match(t.description, /^Schwer \(T4\) · 5:05 h Aufstieg · ↑ 964 m · 7,2 km/);
+  assert.equal(shareTexts({ ...s, title: 'Zugspitze Rundtour', kind: 'loop', stats: { timeTotal: 7 } }).title, 'Zugspitze Rundtour');
+  assert.ok(fitZoom([[11, 47], [11.05, 47.03]], 980, 368) >= 12);
+  assert.ok(fitZoom([[10, 46], [12, 48]], 980, 368) < 10);
+  const c = Array.from({ length: 5000 }, (_, i) => [i, 0]);
+  const th = thin(c, 1500);
+  assert.equal(th.length, 1500);
+  assert.deepEqual(th[0], [0, 0]);
+  assert.deepEqual(th[1499], [4999, 0]);
+  assert.ok(ID_RE.test('AbCd1234') && !ID_RE.test('../etc') && !ID_RE.test(''));
+});

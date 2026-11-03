@@ -5,6 +5,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/t/:id",
+      "destination": "/api/share?id=:id"
+    },
+    {
       "source": "/proxy/brouter/:path*",
       "destination": "https://brouter.de/:path*"
     },

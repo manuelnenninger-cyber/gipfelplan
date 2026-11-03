@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import { windyWebcams, CACHE_HEADER } from './server/webcams.js';
+import { handleSharePage, handleShareImage } from './server/share.js';
 
 // Routing (BRouter) und OSM-Abfragen (Overpass) laufen über einen kleinen
 // Proxy des Dev-Servers. So gibt es keine CORS-Probleme und wir senden einen
@@ -51,11 +52,22 @@ function webcamsApi(key) {
   };
 }
 
+/** Geteilte Touren lokal wie online: /t/<id> (Linkseite) und /api/share-image (Vorschaubild) */
+function shareApi() {
+  const page = (req, res) => handleSharePage(req, res, decodeURIComponent(req.url.replace(/^\//, '').split(/[?#]/)[0]));
+  const image = (req, res) => handleShareImage(req, res, new URL(req.url, 'http://localhost').searchParams.get('id') || '');
+  return {
+    name: 'gipfelplan-share',
+    configureServer(server) { server.middlewares.use('/t', page); server.middlewares.use('/api/share-image', image); },
+    configurePreviewServer(server) { server.middlewares.use('/t', page); server.middlewares.use('/api/share-image', image); },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // Schlüssel aus .env.local (wird nicht eingecheckt)
   const env = loadEnv(mode, process.cwd(), '');
   return {
-    plugins: [webcamsApi(env.WINDY_WEBCAMS_KEY)],
+    plugins: [webcamsApi(env.WINDY_WEBCAMS_KEY), shareApi()],
     server: { port: 5173, open: true, proxy },
     preview: { port: 4173, proxy },
   };
