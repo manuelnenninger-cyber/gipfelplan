@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)" />
     <title>Gipfelplan</title>
+    <meta name="description" content="Touren- und Wetterplanung für die Berge: Routen zum Gipfel, Wetter zur Startzeit, Lawinenlage, Sonne &amp; Schatten, aktuelle Schneelage." />
     <link rel="icon" type="image/png" href="/icons/favicon-64.png" />
     <!-- Als App auf dem Startbildschirm (iPhone: Safari → Teilen → Zum Home-Bildschirm) -->
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -15,7 +16,18 @@
     <meta name="apple-mobile-web-app-title" content="Gipfelplan" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="stylesheet" href="/src/styles.css" />
-  </head>
+      <!-- Vorschau beim Teilen des App-Links (WhatsApp, Signal, iMessage …) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Gipfelplan" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:title" content="Gipfelplan – Touren, Wetter & Lawinenlage für die Berge" />
+    <meta property="og:description" content="Routen zum Gipfel mit Gehzeit und Höhenprofil, Wetter zur Startzeit, Sonne & Schatten am Weg, aktuelle Schneelage. Kostenlos im Browser." />
+    <meta property="og:url" content="https://gipfelplan.vercel.app/" />
+    <meta property="og:image" content="https://gipfelplan.vercel.app/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+</head>
   <body>
     <div id="map" aria-label="Karte"></div>
 
