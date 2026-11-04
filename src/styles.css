@@ -346,6 +346,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .sw-standard { background: linear-gradient(135deg, #f1efe9 40%, #dfe8d6 40% 60%, #bcd3ef 60%); }
 .sw-topo { background: repeating-radial-gradient(circle at 70% 30%, #e9e3cf 0 6px, #d7cdb0 6px 7px), #e9e3cf; }
 .sw-sat { background: radial-gradient(circle at 30% 30%, #5b6b4a, #2e3a2a 60%, #6f7d86); }
+.sw-sub { display: flex; align-items: center; gap: 4px; margin-top: 2px; font-size: 11.5px; color: var(--text-3); }
+.sw-sub i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); margin-left: 3px; }
+.sw-sub i:first-child { margin-left: 0; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--hair); font-size: 14px; }
 .switch-row input {
   appearance: none; width: 44px; height: 26px; border-radius: 13px; background: var(--fill-2);
