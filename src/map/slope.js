@@ -65,12 +65,14 @@ const canvas2d = (w, h) => {
 };
 const toPng = (c) => (c.convertToBlob ? c.convertToBlob({ type: 'image/png' }) : new Promise((r) => c.toBlob(r, 'image/png')));
 
-let registered = false;
-export function registerSlopeProtocol(maplibregl) {
-  if (registered) return;
-  registered = true;
-  maplibregl.addProtocol(SLOPE_PROTOCOL, async (params, abort) => {
-    const [z, x, y] = params.url.replace(`${SLOPE_PROTOCOL}://`, '').split('/').map(Number);
+/**
+ * Kachel-Protokoll aus Geländekacheln: draw(rgba, size, z, x, y, query) → RGBA-Pixel.
+ * Für Hangneigung, Hangrichtung und Gefahrenstellen.
+ */
+export function registerTerrainProtocol(maplibregl, name, draw) {
+  maplibregl.addProtocol(name, async (params, abort) => {
+    const [path, query = ''] = params.url.replace(`${name}://`, '').split('?');
+    const [z, x, y] = path.split('/').map(Number);
     const url = TERRAIN_TILES.replace('{z}', z).replace('{x}', x).replace('{y}', y);
     const res = await fetch(url, { signal: abort.signal });
     if (!res.ok) throw new Error(`Geländekachel ${res.status}`);
@@ -80,9 +82,16 @@ export function registerSlopeProtocol(maplibregl) {
     const ctx = c.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(img, 0, 0);
     const src = ctx.getImageData(0, 0, size, size);
-    const px = slopePixels(src.data, size, z, y);
+    const px = draw(src.data, size, z, x, y, new URLSearchParams(query));
     ctx.putImageData(new ImageData(px, size, size), 0, 0);
     const blob = await toPng(c);
     return { data: await blob.arrayBuffer() };
   });
+}
+
+let registered = false;
+export function registerSlopeProtocol(maplibregl) {
+  if (registered) return;
+  registered = true;
+  registerTerrainProtocol(maplibregl, SLOPE_PROTOCOL, (rgba, size, z, x, y) => slopePixels(rgba, size, z, y));
 }

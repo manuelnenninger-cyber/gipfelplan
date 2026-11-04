@@ -720,3 +720,63 @@ test('Teilen: Vorschautexte, Zoom, Ausdünnen', () => {
   assert.deepEqual(th[1499], [4999, 0]);
   assert.ok(ID_RE.test('AbCd1234') && !ID_RE.test('../etc') && !ID_RE.test(''));
 });
+
+import { slopeAspect } from '../src/map/terrain.js';
+import { dangerSpec, dangerClass, inCore, aspectIndex, checkRoute, terrainAt } from '../src/api/avyCheck.js';
+
+test('Lawinen: Hangrichtung und Steilheit', () => {
+  // Gelände steigt nach Osten → Hang zeigt nach Westen
+  const size = 5, east = new Float32Array(size * size).map((_, p) => (p % size) * 10);
+  const a = slopeAspect(east, size, 10);
+  assert.ok(Math.abs(a.aspect[12] - 270) < 1e-6);
+  assert.ok(Math.abs(a.slope[12] - 45) < 1e-6);
+  // Gelände steigt nach Süden (Zeilen nach unten) → Hang zeigt nach Norden
+  const south = new Float32Array(size * size).map((_, p) => Math.floor(p / size) * 5);
+  const b = slopeAspect(south, size, 10);
+  assert.ok(b.aspect[12] < 1e-6 || Math.abs(b.aspect[12] - 360) < 1e-6);
+  assert.equal(aspectIndex(350), 0);
+  assert.equal(aspectIndex(44), 1);
+  assert.equal(aspectIndex(181), 4);
+  // Sampler: Ebene, die nach Norden ansteigt → Hang zeigt nach Süden
+  const t = terrainAt((lng, lat) => (lat - 47) * 111320 * 0.7, 11, 47);
+  assert.ok(Math.abs(t.aspect - 180) < 1 && Math.abs(t.slope - 35) < 0.5);
+});
+
+test('Lawinen: Reduktionsmethode mit Kernzonen', () => {
+  const report = {
+    state: 'rated', level: 3, high: 3, low: 2, boundM: 2000,
+    problems: [{ type: 'wind_slab', aspects: ['N', 'NE', 'E'], lower: 2200, upper: null }, { type: 'favourable_situation', aspects: null }],
+  };
+  const spec = dangerSpec(report);
+  assert.deepEqual(spec.z, [[7, 2200, null]]);
+  assert.equal(inCore(spec, 20, 2500), true);
+  assert.equal(inCore(spec, 180, 2500), false);
+  assert.equal(inCore(spec, 20, 2100), false);
+  // Kernzone, Stufe 3: ab 35° meiden, ab 30° Vorsicht
+  assert.equal(dangerClass(spec, 36, 10, 2500), 2);
+  assert.equal(dangerClass(spec, 31, 10, 2500), 1);
+  // Südhang (keine Kernzone) → eine Stufe weniger (2): erst ab 40° meiden
+  assert.equal(dangerClass(spec, 36, 180, 2500), 1);
+  assert.equal(dangerClass(spec, 41, 180, 2500), 2);
+  // unter der Höhengrenze Stufe 2, außerhalb der Kernzone → 1
+  assert.equal(dangerClass(spec, 38, 10, 1500), 0);
+  assert.equal(dangerClass(spec, 20, 10, 2500), 0);
+  assert.equal(dangerSpec({ state: 'none' }), null);
+  // ohne Lawinenprobleme gilt alles als Kernzone
+  assert.equal(inCore(dangerSpec({ ...report, problems: [] }), 180, 1000), true);
+});
+
+test('Lawinen: Route durch steilen Nordhang', () => {
+  const spec = dangerSpec({ state: 'rated', level: 3, high: 3, low: 3, boundM: null, problems: [] });
+  // Gelände: ab 47,005 steiler Hang (40°) nach Norden abfallend, sonst flach
+  const elev = (lng, lat) => (lat > 47.005 ? 2000 - (lat - 47.005) * 111320 * Math.tan((40 * Math.PI) / 180) : 2000);
+  const coords = [];
+  for (let i = 0; i <= 40; i++) coords.push([11, 47 + i * 0.00025]);
+  const c = checkRoute(coords, elev, spec);
+  assert.equal(c.level, 2);
+  assert.ok(c.sections.length >= 1 && c.sections[0].from > 400);
+  assert.ok(Math.abs(c.sections[0].slope - 40) < 1.5);
+  const flat = checkRoute(coords, () => 1500, spec);
+  assert.equal(flat.level, 0);
+  assert.equal(checkRoute(coords, () => null, spec), null);
+});

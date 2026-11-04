@@ -20,7 +20,9 @@ import { fetchForecast } from './api/weather.js';
 import { importGPXFile } from './api/gpx.js';
 import { fmtInt, fmtDuration, fmtKm } from './util/format.js';
 import { boundsOf } from './util/geo.js';
-import { lookupRegion, avalancheReport, avaKey } from './api/avalanche.js';
+import { lookupRegion, avalancheReport, avaKey, LEVEL_NAME } from './api/avalanche.js';
+import { dangerSpec, checkRoute } from './api/avyCheck.js';
+import { loadDem } from './map/dem.js';
 import { fetchWebcams } from './api/webcams.js';
 import { scenesFor } from './map/satellite.js';
 import { openPlanView } from './ui/planView.js';
@@ -87,6 +89,7 @@ const DIFF_COLOR = { easy: '#2fb350', medium: '#f0a020', hard: '#e5484d' };
 const diffColor = (r) => DIFF_COLOR[diffOf(r)] || '#8a94a8';
 const routesPanel = createRoutesPanel($('tab-routes'), {
   onSelect: (id) => {
+    updateAvyMap(id);
     if (id) view.selectRoute(id);
     else { view.selectRoute(null, { fit: false }); view.fitRoutes(); }
   },
@@ -94,6 +97,8 @@ const routesPanel = createRoutesPanel($('tab-routes'), {
   onImportFiles: (files) => handleFiles(files),
   onPlan: () => planner.open(),
   onShare: (route, peak) => shareTour(route, peak),
+  getAvy: (r) => avyFor(r),
+  onAvyLayer: () => { setDangerLayer(true); if (sheet.isMobile) sheet.snap('peek'); },
   colorOf: (r) => (colorByDiff ? diffColor(r) : r.color),
   // „Planen“ einer Tour: Startzeit, Wetter zur Uhrzeit, Sonne & Schatten, Schnee
   onPlanTour: (route, host, back) => {
@@ -162,6 +167,8 @@ async function loadAvalanche(peak, stale) {
     current.ava = { region, reports };
     forecastPanel.setAvalanche(current.ava);
     renderSummary();
+    runAvyChecks(peak, current.routes, stale);
+    if (dangerOn) updateDanger();
   } catch (e) {
     if (!stale()) forecastPanel.setAvalanche({ error: e.message });
   }
@@ -313,6 +320,7 @@ async function selectPeak(input) {
   rememberRecent(peak);
 
   view.clear();
+  view.setAvySections(null);
   updatePoiFilter();
   view.showPeak(peak);
   setTimeout(maybeShowInstallHint, 4000); // nach dem ersten Gipfel: Tipp „als App installieren“ (iPhone)
@@ -387,6 +395,8 @@ async function selectPeak(input) {
           overlay.setFocus({ w, s, e, n }); // feines Wetterraster über alle Touren
           rememberPeak(peak, routes, places); // für unterwegs ohne Empfang
           if (!current.snow) summarySnow(peak, routes[0], stale);
+          current.routes = routes;
+          runAvyChecks(peak, routes, stale);
         }
       },
     });
@@ -553,6 +563,99 @@ const account = createAccount({ onOpenTour: openSavedTour, toast });
 if (loginRedirect?.ok && loginRedirect.type === 'recovery') setTimeout(() => account.askNewPassword(), 300);
 else if (loginRedirect?.ok) setTimeout(() => toast(loginRedirect.type === 'signup' ? 'E-Mail bestätigt – du bist angemeldet.' : 'Du bist angemeldet.'), 400);
 else if (loginRedirect?.error) setTimeout(() => toast(`Anmeldung fehlgeschlagen: ${loginRedirect.error}`), 400);
+
+// --- Lawinen: Bericht für den Planungstag, Check je Tour, Gefahrenstellen, Hangrichtung ---------
+/** Ab 17 Uhr gilt schon der Bericht für morgen (Ausgabe der Warndienste) */
+function avaDay() {
+  const d = new Date();
+  if (d.getHours() >= 17) d.setDate(d.getDate() + 1);
+  return d;
+}
+const avaDayWord = () => (avaDay().getDate() === new Date().getDate() ? 'für heute' : 'für morgen');
+function planReport(ava) {
+  const r = ava?.reports?.[avaKey(avaDay())];
+  return r?.state === 'rated' ? r : null;
+}
+
+let avyState = { peak: null, spec: null, report: null, dem: null, checks: new Map() };
+async function runAvyChecks(peak, routes, stale) {
+  const report = planReport(current.ava);
+  const spec = dangerSpec(report);
+  if (!spec || !routes?.length) return;
+  if (avyState.peak === peak && avyState.spec) return; // schon gerechnet
+  const pts = routes.flatMap((r) => r.coords);
+  const b = { w: Math.min(...pts.map((c) => c[0])), e: Math.max(...pts.map((c) => c[0])), s: Math.min(...pts.map((c) => c[1])), n: Math.max(...pts.map((c) => c[1])) };
+  let dem = null;
+  for (const z of [13, 12]) {
+    try { dem = await loadDem(b, { z, margin: 300 }); break; } catch { /* größeres Gebiet → gröber */ }
+  }
+  if (!dem || stale()) return;
+  avyState = { peak, spec, report, dem, checks: new Map() };
+  routesPanel.refresh();
+  updateAvyMap(routesPanel.selected);
+}
+function avyFor(r) {
+  if (!r || avyState.peak !== current.peak || !avyState.spec) return null;
+  if (!avyState.checks.has(r.id)) avyState.checks.set(r.id, checkRoute(r.coords, avyState.dem, avyState.spec));
+  const check = avyState.checks.get(r.id);
+  return check ? { check, report: avyState.report, day: avaDayWord() } : null;
+}
+function updateAvyMap(id) {
+  const r = id && routesPanel.visible.find((x) => x.id === id);
+  view.setAvySections(r ? avyFor(r)?.check.sections : null);
+}
+
+// Gefahrenstellen auf der Karte: Bericht des Gipfels, sonst der Region in der Kartenmitte
+let dangerOn = false;
+async function updateDanger() {
+  if (!dangerOn) return;
+  let report = current.peak ? planReport(current.ava) : null;
+  if (!report && !current.peak) {
+    const c = view.map.getCenter();
+    const key = avaKey(avaDay());
+    const region = await lookupRegion(c.lat, c.lng, key).catch(() => null);
+    const r = region ? await avalancheReport(region, key).catch(() => null) : null;
+    report = r?.state === 'rated' ? r : null;
+  }
+  if (!dangerOn) return;
+  const spec = dangerSpec(report);
+  view.setDanger(spec);
+  const probs = (report?.problems || []).filter((p) => p.where && !/Günstige|Kein ausgeprägtes/.test(p.name)).map((p) => `${p.name}: ${p.where}`).join('; ');
+  $('danger-text').textContent = spec
+    ? `Bericht ${avaDayWord()}${report.regionName ? ` (${report.regionName})` : ''}: Stufe ${report.level} – ${LEVEL_NAME[report.level]}${probs ? `. Kernzonen: ${probs}` : ''}. Gefärbt sind Hänge ab 28°, die nach der Reduktionsmethode zu steil sind. Planungshilfe – vor Ort beurteilen.`
+    : 'Für diese Gegend gibt es gerade keine Warnstufe – keine Gefahrenstellen.';
+}
+function setDangerLayer(on) {
+  dangerOn = on;
+  $('toggle-danger').checked = on;
+  $('danger-legend').hidden = !on;
+  if (!on) { view.setDanger(null); return; }
+  $('danger-text').textContent = 'Lade Lawinenbericht …';
+  updateDanger();
+  if (view.map.getZoom() < view.slopeMinZoom) toast('Gefahrenstellen: zum Anzeigen etwas weiter hineinzoomen.');
+}
+$('toggle-danger').addEventListener('change', (e) => setDangerLayer(e.target.checked));
+let dangerTimer = 0;
+view.map.on('moveend', () => { if (dangerOn && !current.peak) { clearTimeout(dangerTimer); dangerTimer = setTimeout(updateDanger, 600); } });
+
+// Hangrichtung: Windrose wählt die Richtungen
+let aspectMask = 255;
+function syncRose() {
+  $('aspect-rose').querySelectorAll('[data-a]').forEach((b) => {
+    if (b.dataset.a !== 'all') b.setAttribute('aria-pressed', String(!!(aspectMask & (1 << Number(b.dataset.a)))));
+  });
+  view.setAspect($('toggle-aspect').checked ? aspectMask || null : null);
+}
+$('toggle-aspect').addEventListener('change', (e) => {
+  $('aspect-rose').hidden = !e.target.checked;
+  syncRose();
+  if (e.target.checked && view.map.getZoom() < view.slopeMinZoom) toast('Hangrichtung: zum Anzeigen etwas weiter hineinzoomen.');
+});
+$('aspect-rose').querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
+  if (b.dataset.a === 'all') aspectMask = aspectMask === 255 ? 0 : 255;
+  else aspectMask ^= 1 << Number(b.dataset.a);
+  syncRose();
+}));
 
 // --- Touren teilen ------------------------------------------------------------------------
 const shareIds = new Map(); // Tour → Link-ID (nicht doppelt anlegen)

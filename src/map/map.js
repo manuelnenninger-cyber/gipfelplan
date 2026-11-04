@@ -10,9 +10,12 @@ import { openPoiCard, closePoiCard, openWebcamCard } from '../ui/poiCard.js';
 import { PLAN_COLOR } from '../api/routing.js';
 import { registerSlopeProtocol, SLOPE_PROTOCOL, SLOPE_MINZOOM } from './slope.js';
 import { registerSatelliteProtocol, HLS_PROTOCOL, HLS_MAXZOOM } from './satellite.js';
+import { registerTerrainLayers, ASPECT_PROTOCOL, DANGER_PROTOCOL } from './terrain.js';
+import { encodeSpec } from '../api/avyCheck.js';
 
 registerSlopeProtocol(maplibregl);
 registerSatelliteProtocol(maplibregl);
+registerTerrainLayers(maplibregl);
 
 // Eigene Quellen/Ebenen beginnen mit "gp-" und überleben Stilwechsel.
 // Ebenen mit "gp-wx" verwaltet das Wetter-Overlay selbst.
@@ -82,6 +85,8 @@ export function createMapView(container) {
     contours: true,
     slope: false,
     snowSat: false,
+    aspect: null, // Bitmaske der Hangrichtungen oder null
+    danger: null, // Lawinenbericht (dangerSpec) oder null
     routes: [],
     selected: null,
     flat: false,
@@ -129,6 +134,7 @@ export function createMapView(container) {
     map.getSource('gp-webcams')?.setData(camData);
   }
   let planData = EMPTY;
+  let avyData = EMPTY;
   let camData = EMPTY;
 
   // --- Eigene Quellen & Ebenen ------------------------------------------------
@@ -171,6 +177,17 @@ export function createMapView(container) {
     }
     if (!map.getLayer('gp-hls')) {
       map.addLayer({ id: 'gp-hls', type: 'raster', source: 'gp-hls', minzoom: 7, layout: { visibility: 'none' }, paint: { 'raster-fade-duration': 150 } }, 'gp-hillshade');
+    }
+    // Hangrichtung und Gefahrenstellen (ebenfalls aus den Geländekacheln, lädt erst bei Bedarf)
+    const aspectTiles = () => [`${ASPECT_PROTOCOL}://{z}/{x}/{y}?m=${state.aspect ?? 255}`];
+    const dangerTiles = () => [`${DANGER_PROTOCOL}://{z}/{x}/{y}?s=${state.danger ? encodeSpec(state.danger) : ''}`];
+    if (!map.getSource('gp-aspect')) map.addSource('gp-aspect', { type: 'raster', tiles: aspectTiles(), tileSize: 256, minzoom: SLOPE_MINZOOM, maxzoom: 13 });
+    if (!map.getLayer('gp-aspect')) {
+      map.addLayer({ id: 'gp-aspect', type: 'raster', source: 'gp-aspect', minzoom: SLOPE_MINZOOM, layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.5 } }, firstSymbol);
+    }
+    if (!map.getSource('gp-danger')) map.addSource('gp-danger', { type: 'raster', tiles: dangerTiles(), tileSize: 256, minzoom: SLOPE_MINZOOM, maxzoom: 13 });
+    if (!map.getLayer('gp-danger')) {
+      map.addLayer({ id: 'gp-danger', type: 'raster', source: 'gp-danger', minzoom: SLOPE_MINZOOM, layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.55 } }, firstSymbol);
     }
     // Hangneigung: aus den Geländekacheln im Browser berechnet (lädt erst, wenn eingeschaltet)
     if (!map.getSource('gp-slope')) {
@@ -218,6 +235,17 @@ export function createMapView(container) {
           'line-opacity': ['case', ['get', 'dim'], 0.35, 1],
         },
       });
+      // kritische Abschnitte des Lawinen-Checks auf der gewählten Tour
+      if (!map.getSource('gp-avy')) map.addSource('gp-avy', { type: 'geojson', data: avyData });
+      map.addLayer({
+        id: 'gp-avy', type: 'line', source: 'gp-avy',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': ['match', ['get', 'cls'], 2, '#e11428', '#ff9614'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 7, 15, 11],
+          'line-opacity': 0.9,
+        },
+      }, 'gp-routes');
       map.addLayer({
         id: 'gp-routes-hit', type: 'line', source: 'gp-routes',
         paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 },
@@ -361,6 +389,8 @@ export function createMapView(container) {
     if (map.getLayer('gp-hls')) map.setLayoutProperty('gp-hls', 'visibility', state.snowSat ? 'visible' : 'none');
     if (map.getLayer('gp-trails')) map.setLayoutProperty('gp-trails', 'visibility', state.trails ? 'visible' : 'none');
     if (map.getLayer('gp-slope')) map.setLayoutProperty('gp-slope', 'visibility', state.slope ? 'visible' : 'none');
+    if (map.getLayer('gp-aspect')) map.setLayoutProperty('gp-aspect', 'visibility', state.aspect ? 'visible' : 'none');
+    if (map.getLayer('gp-danger')) map.setLayoutProperty('gp-danger', 'visibility', state.danger ? 'visible' : 'none');
   }
 
   map.on('style.load', () => {
@@ -594,6 +624,27 @@ export function createMapView(container) {
     setTrails(on) { state.trails = on; applyVisibility(); },
 
     setSlope(on) { state.slope = on; applyVisibility(); },
+    /** Hangrichtung: Bitmaske (Bit 0 = N … 7 = NW) oder null = aus */
+    setAspect(mask) {
+      const changed = mask && mask !== state.aspect;
+      state.aspect = mask || null;
+      if (changed) map.getSource('gp-aspect')?.setTiles([`${ASPECT_PROTOCOL}://{z}/{x}/{y}?m=${mask}`]);
+      applyVisibility();
+    },
+    /** Gefahrenstellen laut Lawinenbericht (dangerSpec) oder null = aus */
+    setDanger(spec) {
+      const changed = spec && JSON.stringify(spec) !== JSON.stringify(state.danger);
+      state.danger = spec || null;
+      if (changed) map.getSource('gp-danger')?.setTiles([`${DANGER_PROTOCOL}://{z}/{x}/{y}?s=${encodeSpec(spec)}`]);
+      applyVisibility();
+    },
+    /** Abschnitte des Lawinen-Checks: [{ cls, points }] oder null */
+    setAvySections(sections) {
+      avyData = sections?.length
+        ? { type: 'FeatureCollection', features: sections.filter((x) => x.points.length > 1).map((x) => ({ type: 'Feature', properties: { cls: x.cls }, geometry: { type: 'LineString', coordinates: x.points } })) }
+        : EMPTY;
+      map.getSource('gp-avy')?.setData(avyData);
+    },
     setSnowSat(on) { state.snowSat = on; applyVisibility(); },
     get snowSat() { return state.snowSat; },
     get slopeMinZoom() { return SLOPE_MINZOOM; },

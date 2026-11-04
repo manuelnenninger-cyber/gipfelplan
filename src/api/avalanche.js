@@ -231,6 +231,9 @@ export async function avalancheReport(region, date) {
       .map((p) => ({
         type: p.problemType,
         name: PROBLEM_NAME[p.problemType],
+        aspects: p.aspects?.length ? p.aspects : null,
+        lower: p.elevation?.lowerBound != null ? boundMeters(p.elevation.lowerBound) : null,
+        upper: p.elevation?.upperBound != null ? boundMeters(p.elevation.upperBound) : null,
         where: [p.elevation?.lowerBound != null ? `über ${boundText(p.elevation.lowerBound)}` : p.elevation?.upperBound != null ? `unter ${boundText(p.elevation.upperBound)}` : null, aspectsText(p.aspects)].filter(Boolean).join(' · '),
         pm: p.validTimePeriod === 'later',
       }))

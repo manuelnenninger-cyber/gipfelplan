@@ -3,6 +3,8 @@ import { renderProfile } from './profile.js';
 import { escapeHtml, fmtKm, fmtM, fmtDuration, fmtInt } from '../util/format.js';
 import { typeLabel } from '../api/osm.js';
 import { toGPX } from '../api/routing.js';
+import { ASPECTS, ASPECT_DE, CHECK_LABEL } from '../api/avyCheck.js';
+import { LEVEL_NAME, LEVEL_COLOR } from '../api/avalanche.js';
 
 const SAC_TEXT = {
   1: 'Wandern',
@@ -41,7 +43,7 @@ export const DIFFS = [
 ];
 export const diffOf = (r) => DIFFS.find((d) => d.test(r))?.id || null;
 
-export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave, onPlanTour, onShare, colorOf = (r) => r.color }) {
+export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles, onPlan, onSave, onPlanTour, onShare, getAvy = () => null, onAvyLayer, colorOf = (r) => r.color }) {
   const saved = new Map(); // Tour-ID → ID in der Datenbank
   let routes = [];
   let imported = [];
@@ -147,7 +149,15 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
     if (selected) {
       const r = all().find((x) => x.id === selected);
       const prof = el.querySelector('.profile');
-      if (r && prof) renderProfile(prof, r, { onHover });
+      const avy = r && getAvy(r);
+      if (r && prof) renderProfile(prof, r, { onHover, bands: avy?.check.sections.map((x) => ({ from: x.from, to: x.to, color: x.cls === 2 ? '#e11428' : '#ff9614' })) });
+      el.querySelector('.avy-layer')?.addEventListener('click', () => onAvyLayer?.());
+      el.querySelectorAll('.avy-secs li').forEach((li) => {
+        const [lng, lat] = li.dataset.p.split(',').map(Number);
+        li.addEventListener('mouseenter', () => onHover?.([lng, lat]));
+        li.addEventListener('mouseleave', () => onHover?.(null));
+        li.addEventListener('click', () => onHover?.([lng, lat]));
+      });
       el.querySelector('.btn-gpx')?.addEventListener('click', () => downloadGPX(r));
       el.querySelector('.btn-share')?.addEventListener('click', () => onShare?.(r, peak));
       el.querySelector('.btn-plan-tour')?.addEventListener('click', () => openPlan(r.id));
@@ -193,12 +203,47 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
               ${loop
                 ? `<span title="Gesamtzeit">${icon('clock')}${fmtDuration(r.timeTotal)}</span><span title="Höhenmeter">${icon('arrowUp')}${fmtM(r.up)}</span><span title="Strecke gesamt">${icon('route')}${fmtKm(r.length)}</span>`
                 : `<span title="Aufstieg">${icon('clock')}${fmtDuration(r.timeUp)}</span><span title="Höhenmeter">${icon('arrowUp')}${fmtM(r.up)}</span><span title="Strecke einfach">${icon('route')}${fmtKm(r.length)}</span>`}
+              ${avyPill(r)}
             </span>
           </span>
           ${r.sac ? `<span class="sac sac-${diffOf(r)}" title="${SAC_TEXT[r.sac]}"><small>${DIFFS.find((d) => d.test(r)).label}</small>T${r.sac}</span>` : ''}
         </button>
         ${isSel ? detail(r) : ''}
       </li>`;
+  }
+
+  function avyPill(r) {
+    const a = getAvy(r);
+    if (!a) return '';
+    return `<span class="avy-pill avy-${a.check.level}" title="Lawinen-Check: ${CHECK_LABEL[a.check.level]}">${icon('alert')}Lawine ${CHECK_LABEL[a.check.level]}</span>`;
+  }
+
+  function avyCard(r) {
+    const a = getAvy(r);
+    if (!a) return '';
+    const { check, report, day } = a;
+    const lvl = report.level;
+    const verdict = {
+      2: 'Die Route führt durch Hänge, die bei dieser Lawinenlage gemieden werden sollten.',
+      1: 'Steile Abschnitte nahe der Grenze – genau beurteilen und Alternativen prüfen.',
+      0: 'Keine Hänge, die bei dieser Lage zu steil wären (geprüft bis ca. 15 m neben der Route).',
+    }[check.level];
+    const secs = [...check.sections].sort((x, y) => y.cls - x.cls || y.slope - x.slope).slice(0, 4).map((x) => `
+        <li data-p="${x.points[0][0]},${x.points[0][1]}"><i class="avy-d avy-d${x.cls}"></i>
+          <span>km ${(x.from / 1000).toFixed(1).replace('.', ',')} · ${fmtInt(Math.round(x.ele / 10) * 10)} m · <b>${Math.round(x.slope)}°</b> ${ASPECT_DE[ASPECTS[Math.round(x.aspect / 45) % 8]]}${x.core ? ' · Kernzone' : ''}</span>
+          <small>${x.cls === 2 ? 'meiden' : 'Vorsicht'}</small></li>`).join('');
+    const probs = (report.problems || []).filter((p) => p.where).map((p) => `${p.name}: ${p.where}`).join(' · ');
+    return `
+      <section class="avy-card avy-c${check.level}">
+        <header><span class="ava-badge" style="--c:${LEVEL_COLOR[lvl]}" data-l="${lvl}">${lvl}</span>
+          <div><b>Lawinen-Check: ${CHECK_LABEL[check.level]}</b>
+          <small>Bericht ${escapeHtml(day)}: Stufe ${lvl} (${LEVEL_NAME[lvl]})${report.bound && report.high !== report.low ? `, über ${escapeHtml(report.bound)} ${report.high}, darunter ${report.low}` : ''}</small></div></header>
+        <p>${verdict}</p>
+        ${probs ? `<p class="muted small">Kernzonen: ${escapeHtml(probs)}</p>` : ''}
+        ${secs ? `<ul class="avy-secs">${secs}</ul>` : ''}
+        <button class="btn avy-layer">${icon('layers')}Gefahrenstellen auf der Karte</button>
+        <p class="fineprint">Grobe Planungshilfe nach der Reduktionsmethode: je höher die Stufe, desto flachere Hänge (Stufe 2 bis 40°, 3 bis 35°, 4 bis 30°; außerhalb der Kernzonen eine Stufe weniger). Gelände ca. 20 m genau; Fels über 60°, Wald und Geländeform nicht berücksichtigt. Lagebericht lesen und vor Ort beurteilen.</p>
+      </section>`;
   }
 
   function detail(r) {
@@ -233,6 +278,7 @@ export function createRoutesPanel(el, { onSelect, onHover, onShow, onImportFiles
           <div><dt>Schwierigkeit</dt><dd>${r.sac ? `${DIFFS.find((d) => d.test(r)).label} (T${r.sac}), ${SAC_TEXT[r.sac]}` : 'Keine Angabe'}</dd></div>
         </dl>
         ${huts}
+        ${avyCard(r)}
         ${notes.map((n) => `<p class="note">${icon('alert')}<span>${escapeHtml(n)}</span></p>`).join('')}
         ${r.kind === 'marked' ? `<p class="marked-info">${icon('signpost')}<span>${r.symbol ? `Markierung: ${escapeHtml(r.symbol)}. ` : ''}<a href="${r.link}" target="_blank" rel="noopener">Weg bei Waymarked Trails ansehen</a></span></p>` : ''}
         <button class="btn btn-primary btn-plan-tour">${icon('calendar')}Startzeit & Wetter</button>

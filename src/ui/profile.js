@@ -3,7 +3,7 @@ import { fmtInt } from '../util/format.js';
 const nf1 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
 
 /** Höhenprofil als SVG, mit Fadenkreuz, das die Position auf der Karte zeigt */
-export function renderProfile(container, route, { onHover } = {}) {
+export function renderProfile(container, route, { onHover, bands = [] } = {}) {
   const W = Math.max(280, container.clientWidth || 340);
   const H = 140;
   const m = { l: 38, r: 10, t: 14, b: 22 };
@@ -56,6 +56,7 @@ export function renderProfile(container, route, { onHover } = {}) {
         </linearGradient>
       </defs>
       ${grid}
+      ${bands.map((b) => `<rect x="${x(Math.min(b.from, dMax)).toFixed(1)}" y="${m.t}" width="${Math.max(2, x(Math.min(b.to, dMax)) - x(Math.min(b.from, dMax))).toFixed(1)}" height="${ih}" fill="${b.color}" opacity="0.28"/>`).join('')}
       <path d="${area}" fill="url(#${gid})"/>
       <path d="${line}" fill="none" stroke="${route.color}" stroke-width="2" stroke-linejoin="round"/>
       ${xl}

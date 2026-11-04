@@ -108,6 +108,30 @@
           <span class="sl-hint">Steile Hänge – wichtig bei Schnee. Ab mittlerer Zoomstufe.</span>
         </div>
         <label class="switch-row">
+          <span>Hangrichtung</span>
+          <input type="checkbox" id="toggle-aspect" role="switch" />
+        </label>
+        <div class="aspect-rose" id="aspect-rose" hidden role="group" aria-label="Hangrichtungen wählen">
+          <button data-a="7" aria-pressed="true" style="--c:#9646c4">NW</button>
+          <button data-a="0" aria-pressed="true" style="--c:#2f63d6">N</button>
+          <button data-a="1" aria-pressed="true" style="--c:#1aaac4">NO</button>
+          <button data-a="6" aria-pressed="true" style="--c:#de3e34">W</button>
+          <button class="ar-all" data-a="all">Alle</button>
+          <button data-a="2" aria-pressed="true" style="--c:#34b252">O</button>
+          <button data-a="5" aria-pressed="true" style="--c:#f28522">SW</button>
+          <button data-a="4" aria-pressed="true" style="--c:#f5c414">S</button>
+          <button data-a="3" aria-pressed="true" style="--c:#a0c828">SO</button>
+          <span class="sl-hint">Hänge ab 20°, kräftiger ab 30°. Tippen wählt Richtungen ab oder zu.</span>
+        </div>
+        <label class="switch-row">
+          <span>Gefahrenstellen (Lawinen)</span>
+          <input type="checkbox" id="toggle-danger" role="switch" />
+        </label>
+        <div class="slope-legend" id="danger-legend" hidden>
+          <span class="dl-keys"><span><i style="--c:#ff9614"></i>Vorsicht</span><span><i style="--c:#e11428"></i>meiden</span></span>
+          <span class="sl-hint" id="danger-text">Lade Lawinenbericht …</span>
+        </div>
+        <label class="switch-row">
           <span>Schnee (Satellitenbild)</span>
           <input type="checkbox" id="toggle-snow" role="switch" />
         </label>
