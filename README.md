@@ -94,6 +94,14 @@ Zwei Raster werden ineinander geblendet: ein regionales (14 × 14 Punkte) für d
 
 **Hütten und Parkplätze** sind anklickbar und öffnen eine kleine Infokarte: Foto (aus OSM/Wikidata verlinkt, bei Hütten sonst ein Foto aus unmittelbarer Nähe von Wikimedia Commons), Öffnungszeit mit „geöffnet/derzeit geschlossen“ (aus der Saison in `opening_hours`), Betreiber, Schlafplätze, Gebühr und Stellplätze, Lage zum Gipfel (Luftlinie, Höhenmeter darunter), Knöpfe für Website, Anrufen und Navigation (Apple Karten bzw. Google Maps).
 
+## Farben
+
+Alle Farben kommen aus dem Logo und stehen als Variablen oben in `src/styles.css`:
+- **Gipfelblau** `--blue-900` … `--blue-50` (Logo: `#2440be` → `#6b8bfe`, Schattenseite `#d6e0ff`). Akzent in Hell `#2440be`, in Dunkel `#6b8bfe`; Flächen mit weißer Schrift `--accent-fill`. Blau steht für alles, was man antippt oder ausgewählt hat.
+- **Sonnengelb** `--sun` `#ffce40` (dazu `--sun-strong`, `--sun-soft`, `--sun-ink`): sparsam für Sonne & Schatten, Startzeit-Empfehlung und die selbst gezeichnete Route.
+- **Grautöne** `--gray-900` … `--gray-100` für Text, Flächen und Linien.
+- **Signalfarben** (Ampel grün/orange/rot, EAWS-Lawinenstufen) nur für Bewertungen.
+
 ## Leistung
 
 - Die Karte startet in 2D. In 3D rendert sie mit reduzierter Auflösung (Pixelverhältnis 1,35 statt 2) und lädt Geländedaten nur bis Zoomstufe 12; 3D-Gebäude sind ausgeblendet.

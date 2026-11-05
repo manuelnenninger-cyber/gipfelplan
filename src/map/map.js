@@ -26,7 +26,7 @@ const POI_LAYERS = ['gp-parking', 'gp-huts', 'gp-bivouacs', 'gp-webcams'];
 const HIGHLIGHT = {
   huts: { layer: 'gp-huts', kinds: ['hut', 'alm'], color: '#9a4f1c' },
   bivouacs: { layer: 'gp-bivouacs', kinds: ['bivouac'], color: '#e8590c' },
-  webcams: { layer: 'gp-webcams', color: '#1c7ed6' },
+  webcams: { layer: 'gp-webcams', color: '#2440be' },
 };
 const POI_MINZOOM = { 'gp-parking': 12.5, 'gp-huts': 11, 'gp-bivouacs': 11, 'gp-webcams': 9.5 };
 const POI_SIZE = ['interpolate', ['linear'], ['zoom'], 11, 0.7, 15, 1];
@@ -277,8 +277,8 @@ export function createMapView(container) {
         id, type: 'circle', source, layout: { visibility: 'none' },
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 12, 12, 16, 15, 20],
-          'circle-color': '#1c7ed6', 'circle-opacity': 0.22,
-          'circle-stroke-color': '#1c7ed6', 'circle-stroke-width': 2.5,
+          'circle-color': '#2440be', 'circle-opacity': 0.22,
+          'circle-stroke-color': '#2440be', 'circle-stroke-width': 2.5,
         },
       });
       ring('gp-hl-poi', 'gp-huts');
@@ -324,7 +324,7 @@ export function createMapView(container) {
       map.addLayer({
         id: 'gp-plan-casing', type: 'line', source: 'gp-plan',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 9 },
+        paint: { 'line-color': '#16226e', 'line-width': 9 },
       }, map.getLayer('gp-hover') ? 'gp-hover' : undefined);
       map.addLayer({
         id: 'gp-plan', type: 'line', source: 'gp-plan',

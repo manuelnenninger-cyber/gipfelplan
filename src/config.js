@@ -60,7 +60,7 @@ export const MAP_STYLES = {
 export const TERRAIN_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 export const TRAILS_TILES = 'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png';
 
-export const ROUTE_COLORS = ['#2f4fd6', '#e0563b', '#13a37f', '#b04fd1', '#d9930d', '#1c8fc4'];
+export const ROUTE_COLORS = ['#2440be', '#e0563b', '#13a37f', '#b04fd1', '#d9930d', '#1c8fc4'];
 
 // Konten und gespeicherte Touren (Supabase). Beide Werte sind öffentlich und dürfen im
 // Browser stehen – geschützt werden die Daten über Zeilenrechte in der Datenbank

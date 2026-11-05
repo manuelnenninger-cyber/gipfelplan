@@ -59,16 +59,16 @@ const P = {
 };
 
 // Wettersymbole (mehrfarbig, an Apple Wetter angelehnt)
-const SUN = '<circle cx="12" cy="12" r="4.2" fill="#ffc531" stroke="none"/><g stroke="#ffc531"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M5.3 18.7l1.5-1.5M17.2 6.8l1.5-1.5"/></g>';
+const SUN = '<circle cx="12" cy="12" r="4.2" fill="#ffce40" stroke="none"/><g stroke="#ffce40"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M5.3 18.7l1.5-1.5M17.2 6.8l1.5-1.5"/></g>';
 const MOON = '<path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5Z" fill="#c9cdf2" stroke="none"/>';
 const CLOUD = (y = 0, fill = 'var(--cloud-fill)') =>
   `<path transform="translate(0 ${y})" d="M7.5 19h9.5a4 4 0 0 0 .5-7.97A5.5 5.5 0 0 0 6.9 12.6 3.2 3.2 0 0 0 7.5 19Z" fill="${fill}" stroke="none"/>`;
-const SMALLSUN = '<circle cx="8" cy="8.5" r="3.3" fill="#ffc531" stroke="none"/><g stroke="#ffc531"><path d="M8 2.5v1.3M2 8.5h1.3M3.8 4.3l.9.9M12.2 4.3l-.9.9"/></g>';
+const SMALLSUN = '<circle cx="8" cy="8.5" r="3.3" fill="#ffce40" stroke="none"/><g stroke="#ffce40"><path d="M8 2.5v1.3M2 8.5h1.3M3.8 4.3l.9.9M12.2 4.3l-.9.9"/></g>';
 const SMALLMOON = '<path d="M12 8.8A4.6 4.6 0 0 1 6.2 3a4.6 4.6 0 1 0 5.8 5.8Z" fill="#c9cdf2" stroke="none"/>';
 const RAIN = '<g stroke="#3b8cff" stroke-width="1.8"><path d="M9 19.5 8 22M13 19.5 12 22M17 19.5 16 22"/></g>';
 const DRIZZLE = '<g stroke="#3b8cff" stroke-width="1.8"><path d="M9.5 20.5v.8M13.5 20.5v.8M17.5 20.5v.8"/></g>';
 const SNOW = '<g fill="#7fd3ff" stroke="none"><circle cx="9" cy="21" r="1.1"/><circle cx="13" cy="21.6" r="1.1"/><circle cx="17" cy="21" r="1.1"/></g>';
-const BOLT = '<path d="M13.5 16.5 11 21h2.5L12.5 23.5 16 19h-2.5l1-2.5Z" fill="#ffc531" stroke="none"/>';
+const BOLT = '<path d="M13.5 16.5 11 21h2.5L12.5 23.5 16 19h-2.5l1-2.5Z" fill="#ffce40" stroke="none"/>';
 const FOG = '<g stroke="var(--cloud-stroke)" stroke-width="1.8"><path d="M4 15h16M6 18.5h12M8 22h8"/></g>';
 
 const WX = {

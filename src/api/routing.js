@@ -529,7 +529,7 @@ ${pts}
 // ---------------------------------------------------------------------------
 // 4) Eigene Route: Punkte in der gewählten Reihenfolge über Wege verbinden
 // ---------------------------------------------------------------------------
-export const PLAN_COLOR = '#d6336c';
+export const PLAN_COLOR = '#ffce40'; // Sonnengelb: eigene Route
 
 /** Kurzer Titel aus den benannten Punkten, z. B. „P Hammersbach → Knorrhütte → Zugspitze“ */
 export function planTitle(points) {

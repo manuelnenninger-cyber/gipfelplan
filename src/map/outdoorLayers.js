@@ -43,7 +43,7 @@ function omtSource(map) {
   return 'gp-omt';
 }
 
-const POI_FILL = { 'gp-hut': '#9a4f1c', 'gp-alm': '#4d7c0f', 'gp-bivouac': '#e8590c', 'gp-parking': '#2463d6' };
+const POI_FILL = { 'gp-hut': '#9a4f1c', 'gp-alm': '#4d7c0f', 'gp-bivouac': '#e8590c', 'gp-parking': '#2440be' };
 
 /** Kartensymbole (scharf auf Retina). Auch für „styleimagemissing“ nach Stilwechseln. */
 export function addMapIcon(map, id) {

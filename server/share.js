@@ -144,7 +144,7 @@ export async function renderShareImage(share, { fetchTile, logo = null }) {
   fillRect(cv, 0, 0, W, mapH, [255, 255, 255], 0.16); // Karte etwas aufhellen: Route sticht hervor, Bild wird kleiner
 
   // Route
-  const color = hex(share.stats?.color, '#d6336c');
+  const color = hex(share.stats?.color, '#2440be');
   const pts = coords.map((c, i) => [xs[i] - ox, ys[i] - oy]);
   paint(cv, strokeMask(cv, pts, 13), [255, 255, 255]);
   paint(cv, strokeMask(cv, pts, 7), color);
