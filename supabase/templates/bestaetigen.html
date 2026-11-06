@@ -1,27 +1,43 @@
 <!doctype html>
 <html lang="de">
-<body style="margin:0;padding:0;background:#eef1f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1c2333">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f8;padding:32px 12px">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Gipfelplan: E-Mail bestätigen</title></head>
+<body style="margin:0;padding:0;background:#eef2ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f">
+  <!-- Vorschautext im Posteingang (unsichtbar) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Noch ein Klick, dann ist dein Gipfelplan-Konto startklar.&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2ff;padding:32px 12px">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:460px;background:#ffffff;border-radius:18px;overflow:hidden">
-        <tr><td style="background:#2440be;background-image:linear-gradient(160deg,#3a5bdc,#1d2f8f);padding:26px 28px" align="left">
-          <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-            <td style="padding-right:12px"><img src="https://gipfelplan.vercel.app/icons/icon-192.png" width="44" height="44" alt="" style="display:block;border-radius:11px"></td>
-            <td style="color:#ffffff;font-size:21px;font-weight:700;letter-spacing:-0.2px">Gipfelplan</td>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(22,34,110,0.08)">
+        <tr><td style="background:#2440be;background-image:linear-gradient(160deg,#4866de,#16226e);padding:24px 28px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td width="56" style="padding-right:12px"><img src="https://gipfelplan.vercel.app/icons/icon-192.png" width="44" height="44" alt="Gipfelplan" style="display:block;border-radius:11px"></td>
+            <td style="color:#ffffff;font-size:21px;font-weight:700;letter-spacing:-0.2px">Gipfelplan<br><span style="font-size:13px;font-weight:500;color:#d6e0ff;letter-spacing:0">Dein Konto</span></td>
           </tr></table>
         </td></tr>
-        <tr><td style="padding:28px 28px 8px">
-          <h1 style="margin:0 0 10px;font-size:20px;line-height:1.3">Willkommen bei Gipfelplan</h1>
-          <p style="margin:0 0 22px;font-size:15px;line-height:1.5;color:#4a5368">Bitte bestätige noch deine E-Mail-Adresse – danach kannst du Touren und eigene Routen speichern.</p>
-          <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:12px;background:#2440be">
-            <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 22px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none">E-Mail bestätigen</a>
+        <tr><td style="height:4px;background:#ffce40;line-height:4px;font-size:0">&nbsp;</td></tr>
+        <tr><td style="padding:28px 28px 6px">
+          <p style="margin:0 0 6px;font-size:15px;color:#6e6e73">{{ if .Data.name }}Hallo {{ .Data.name }},{{ else }}Hallo,{{ end }}</p>
+          <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:#16226e">Schön, dass du dabei bist!</h1>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#424245">Bestätige noch kurz deine E-Mail-Adresse – dann ist dein Konto startklar und du kannst Touren speichern, planen und teilen.</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 4px"><tr><td style="border-radius:12px;background:#2440be">
+            <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 26px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none">E-Mail bestätigen</a>
           </td></tr></table>
         </td></tr>
-        <tr><td style="padding:22px 28px 26px">
-          <p style="margin:0;font-size:13px;line-height:1.5;color:#7a8296">Danach meldest du dich in Gipfelplan mit E-Mail und Passwort an.<br><br>Du hast kein Konto angelegt? Dann ignoriere diese Mail einfach.</p>
+        <tr><td style="padding:22px 28px 10px">
+          <p style="margin:0 0 14px;font-size:13px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:#86868b">Das wartet auf dich</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr><td width="40" valign="top" style="padding:0 12px 14px 0"><div style="width:36px;height:36px;border-radius:10px;background:#eef2ff;text-align:center;line-height:36px;font-size:18px">⛰️</div></td>
+                <td valign="top" style="padding:0 0 14px;font-size:14px;line-height:1.45;color:#424245"><strong style="color:#1d1d1f">Touren speichern</strong><br>Deine Routen und Lieblingsgipfel auf jedem Gerät – auch ohne Empfang.</td></tr>
+              <tr><td width="40" valign="top" style="padding:0 12px 14px 0"><div style="width:36px;height:36px;border-radius:10px;background:#eef2ff;text-align:center;line-height:36px;font-size:18px">🌤️</div></td>
+                <td valign="top" style="padding:0 0 14px;font-size:14px;line-height:1.45;color:#424245"><strong style="color:#1d1d1f">Startzeit &amp; Wetter</strong><br>Wann du losgehen solltest, damit du vor Gewitter und Dunkelheit zurück bist.</td></tr>
+              <tr><td width="40" valign="top" style="padding:0 12px 14px 0"><div style="width:36px;height:36px;border-radius:10px;background:#eef2ff;text-align:center;line-height:36px;font-size:18px">🔗</div></td>
+                <td valign="top" style="padding:0 0 14px;font-size:14px;line-height:1.45;color:#424245"><strong style="color:#1d1d1f">Teilen</strong><br>Schick deine Tour mit Kartenvorschau an deine Seilschaft.</td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:18px 28px 26px;border-top:1px solid #eef0f5">
+          <p style="margin:0;font-size:12.5px;line-height:1.55;color:#86868b">Danach meldest du dich in Gipfelplan einfach mit E-Mail und Passwort an. Du hast kein Konto angelegt? Dann ignoriere diese Mail – es passiert nichts.<br><br>Klappt der Knopf nicht? Diesen Link in den Browser kopieren:<br><a href="{{ .ConfirmationURL }}" style="color:#4866de;word-break:break-all">{{ .ConfirmationURL }}</a></p>
         </td></tr>
       </table>
-      <p style="margin:16px 0 0;font-size:12px;color:#9aa1b2">Gipfelplan · Touren- und Wetterplanung für die Berge · <a href="https://gipfelplan.vercel.app" style="color:#9aa1b2">gipfelplan.vercel.app</a></p>
+      <p style="margin:16px 0 0;font-size:12px;line-height:1.5;color:#9aa1b2">Diese Mail ging an {{ .Email }}.<br>Gipfelplan · Touren, Wetter und Startzeit für die Berge · <a href="https://gipfelplan.vercel.app" style="color:#9aa1b2">gipfelplan.vercel.app</a></p>
     </td></tr>
   </table>
 </body>

@@ -1167,3 +1167,9 @@ html.is-offline .search-field::after {
 .avy-d { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .avy-d1 { background: #ff9614; } .avy-d2 { background: #e11428; }
 .avy-card .avy-layer { justify-self: start; }
+
+.acct-hint { margin: -4px 0 0; font-size: 13px; color: var(--text-2); }
+.acct-hint .acct-link { font-weight: 600; }
+.acct-name { display: flex; gap: 8px; }
+.acct-name input { flex: 1; min-width: 0; height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--fill); color: var(--text); font: 14px var(--font); outline: 0; }
+.acct-name input:focus { box-shadow: 0 0 0 2px var(--accent); }

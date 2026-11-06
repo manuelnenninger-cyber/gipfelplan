@@ -1,6 +1,6 @@
 // Konto: Anmeldung nur bei Bedarf (z. B. beim Speichern), „Meine Touren“, Abmelden.
 // Anmelden mit E-Mail und Passwort, Konto anlegen, Passwort vergessen/neu setzen.
-import { isConfigured, user, onAuthChange, signIn, signUp, requestReset, verifyResetCode, updatePassword, signOut } from '../api/auth.js';
+import { isConfigured, user, onAuthChange, signIn, signUp, requestReset, verifyResetCode, updatePassword, updateName, signOut, emailSuggestion } from '../api/auth.js';
 import { listTours, deleteTour, forgetLocalTours } from '../api/tours.js';
 import { icon } from './icons.js';
 import { escapeHtml, fmtKm, fmtInt, fmtDuration } from '../util/format.js';
@@ -18,6 +18,7 @@ export function createAccount({ onOpenTour, toast }) {
 
   let waiting = null; // Promise-Auflösung für requireLogin
   let email = '';
+  let name = '';
   let step = 'login'; // 'login' | 'signup' | 'forgot' | 'sent' | 'confirm' | 'newpw'
   let busy = false;
   let error = '';
@@ -27,7 +28,7 @@ export function createAccount({ onOpenTour, toast }) {
   function updateButton() {
     const u = user();
     btn.classList.toggle('is-signed-in', !!u);
-    btn.innerHTML = u ? `<span class="acct-avatar">${escapeHtml((u.email || '?')[0].toUpperCase())}</span>` : icon('user');
+    btn.innerHTML = u ? `<span class="acct-avatar">${escapeHtml((u.name || u.email || '?')[0].toUpperCase())}</span>` : icon('user');
     btn.setAttribute('aria-label', u ? `Konto: ${u.email}` : 'Anmelden');
   }
 
@@ -43,7 +44,9 @@ export function createAccount({ onOpenTour, toast }) {
   const TITLES = { login: 'Anmelden', signup: 'Konto erstellen', forgot: 'Passwort vergessen', sent: 'Mail ist unterwegs', confirm: 'E-Mail bestätigen', newpw: 'Neues Passwort' };
   const MIN_PW = 8;
 
-  const emailField = () => `<label class="acct-field">${icon('mail')}<input type="email" name="email" placeholder="deine@email.de" autocomplete="username" inputmode="email" autocapitalize="off" required value="${escapeHtml(email)}" /></label>`;
+  const emailField = () => `<label class="acct-field">${icon('mail')}<input type="email" name="email" placeholder="deine@email.de" autocomplete="username" inputmode="email" autocapitalize="off" required value="${escapeHtml(email)}" /></label>
+      <p class="acct-hint" hidden></p>`;
+  const nameField = () => `<label class="acct-field">${icon('user')}<input type="text" name="name" placeholder="Vorname (optional, für die Anrede)" autocomplete="given-name" maxlength="40" value="${escapeHtml(name)}" /></label>`;
   const pwField = (kind, placeholder) => `<label class="acct-field">${icon('lock')}<input type="password" name="password" placeholder="${placeholder}" autocomplete="${kind}" required ${kind === 'new-password' ? `minlength="${MIN_PW}"` : ''} />
       <button type="button" class="acct-eye" aria-label="Passwort zeigen">${icon('eye')}</button></label>`;
   const goBtn = (label) => `${error ? `<p class="acct-error">${escapeHtml(error)}</p>` : ''}
@@ -60,7 +63,7 @@ export function createAccount({ onOpenTour, toast }) {
         <p class="acct-switch">Neu bei Gipfelplan? <button class="acct-link" data-go="signup">Konto erstellen</button></p>`;
     } else if (step === 'signup') {
       body = `<p class="acct-lead">${escapeHtml(reason || 'Mit einem Konto findest du gespeicherte Touren auf jedem Gerät wieder.')}</p>
-        <form class="acct-form">${emailField()}${pwField('new-password', `Passwort (mind. ${MIN_PW} Zeichen)`)}${goBtn('Konto erstellen')}</form>
+        <form class="acct-form">${nameField()}${emailField()}${pwField('new-password', `Passwort (mind. ${MIN_PW} Zeichen)`)}${goBtn('Konto erstellen')}</form>
         <p class="acct-switch">Schon ein Konto? <button class="acct-link" data-go="login">Anmelden</button></p>`;
     } else if (step === 'forgot') {
       body = `<p class="acct-lead">Gib deine E-Mail-Adresse ein. Du bekommst eine Mail, mit der du ein neues Passwort festlegst. Das geht auch, wenn du bisher ohne Passwort angemeldet warst.</p>
@@ -86,6 +89,20 @@ export function createAccount({ onOpenTour, toast }) {
       if (em) email = em.trim();
       step = b.dataset.go; error = ''; renderLogin();
     }));
+    const mailInput = box.querySelector('input[name=email]:not([hidden])');
+    const hint = box.querySelector('.acct-hint');
+    const checkMail = () => {
+      const sug = mailInput && hint ? emailSuggestion(mailInput.value) : null;
+      if (!hint) return;
+      hint.hidden = !sug;
+      if (sug) {
+        hint.innerHTML = `Meintest du <button type="button" class="acct-link">${escapeHtml(sug)}</button>?`;
+        hint.querySelector('button').addEventListener('click', () => { mailInput.value = sug; email = sug; hint.hidden = true; });
+      }
+    };
+    mailInput?.addEventListener('blur', checkMail);
+    mailInput?.addEventListener('input', () => { if (hint && !hint.hidden) checkMail(); });
+    checkMail();
     box.querySelector('.acct-eye')?.addEventListener('click', (e) => {
       const inp = e.currentTarget.parentElement.querySelector('input');
       const show = inp.type === 'password';
@@ -102,6 +119,7 @@ export function createAccount({ onOpenTour, toast }) {
   async function submit(fd) {
     if (busy) return;
     if (fd.has('email') && step !== 'newpw') email = String(fd.get('email') || '').trim();
+    if (fd.has('name')) name = String(fd.get('name') || '').trim();
     const pw = String(fd.get('password') || '');
     busy = true; error = ''; renderLogin();
     try {
@@ -111,8 +129,8 @@ export function createAccount({ onOpenTour, toast }) {
       }
       if (step === 'signup') {
         if (pw.length < MIN_PW) throw new Error(`Das Passwort braucht mindestens ${MIN_PW} Zeichen.`);
-        const r = await signUp(email, pw);
-        if (r.user) return done(r.user, 'Willkommen bei Gipfelplan – dein Konto ist angelegt.');
+        const r = await signUp(email, pw, name);
+        if (r.user) return done(r.user, `Willkommen bei Gipfelplan${name ? `, ${name}` : ''} – dein Konto ist angelegt.`);
         step = 'confirm';
       } else if (step === 'forgot') {
         await requestReset(email);
@@ -148,9 +166,16 @@ export function createAccount({ onOpenTour, toast }) {
         <button class="icon-btn acct-x" aria-label="Schließen">${icon('x')}</button></header>
       ${tours?.offline ? `<p class="offline-note">${icon('alert')}<span>Ohne Empfang – zuletzt geladene Liste</span></p>` : ''}
       <div class="acct-list">${tours == null ? '<p class="acct-lead acct-loading"><span class="spinner"></span> Lade …</p>' : list()}</div>
-      <footer class="acct-foot"><span class="acct-mail">${icon('user')}${escapeHtml(u?.email || '')}</span>
+      ${u?.name ? '' : `<form class="acct-name"><input name="name" placeholder="Dein Vorname (für persönliche Mails)" autocomplete="given-name" maxlength="40" /><button class="btn">Speichern</button></form>`}
+      <footer class="acct-foot"><span class="acct-mail">${icon('user')}${u?.name ? `${escapeHtml(u.name)} · ` : ''}${escapeHtml(u?.email || '')}</span>
         <button class="acct-link acct-out">${icon('logout')}Abmelden</button></footer>`;
     box.querySelector('.acct-x').addEventListener('click', () => close(null));
+    box.querySelector('.acct-name')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const v = new FormData(e.target).get('name');
+      if (!String(v || '').trim()) return;
+      try { await updateName(String(v)); toast?.('Gespeichert'); renderMine(); } catch (err) { toast?.(err.message); }
+    });
     box.querySelector('.acct-out').addEventListener('click', async () => { await signOut(); forgetLocalTours(); tours = null; close(null); toast?.('Abgemeldet'); });
     box.querySelectorAll('.acct-tour').forEach((b) => b.addEventListener('click', () => {
       const t = tours.find((x) => x.savedId === b.dataset.id);

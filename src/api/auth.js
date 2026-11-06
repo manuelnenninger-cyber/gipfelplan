@@ -26,7 +26,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const isConfigured = () => !!(ACCOUNTS.url && ACCOUNTS.anonKey);
-export const user = () => (session?.user ? { id: session.user.id, email: session.user.email } : null);
+export const user = () => (session?.user ? { id: session.user.id, email: session.user.email, name: session.user.user_metadata?.name || '' } : null);
 export function onAuthChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
 async function call(path, body, { token, timeout = 12000, method = 'POST' } = {}) {
@@ -78,8 +78,10 @@ export async function signIn(email, password) {
  * Konto anlegen. Ist in Supabase „Confirm email“ aus, ist man sofort angemeldet
  * (→ { user }); sonst kommt erst eine Bestätigungsmail (→ { confirm: true }).
  */
-export async function signUp(email, password) {
-  const data = await call(`signup?redirect_to=${encodeURIComponent(back())}`, { email: clean(email), password });
+export async function signUp(email, password, name = '') {
+  const body = { email: clean(email), password };
+  if (name.trim()) body.data = { name: name.trim().slice(0, 40) }; // für die Anrede in Mails
+  const data = await call(`signup?redirect_to=${encodeURIComponent(back())}`, body);
   if (data.access_token) { store(withExpiry(data)); return { user: user() }; }
   return { confirm: true };
 }
@@ -95,6 +97,40 @@ export async function verifyResetCode(email, code) {
   if (!data.access_token) throw new Error('Der Code ist falsch oder abgelaufen.');
   store(withExpiry(data));
   return user();
+}
+
+/** Vornamen speichern (Anrede in Mails) */
+export async function updateName(name) {
+  const token = await accessToken();
+  if (!token) throw new Error('Bitte erst anmelden.');
+  const u = await call('user', { data: { name: name.trim().slice(0, 40) } }, { token, method: 'PUT' });
+  if (session && u?.user_metadata) { session.user = { ...session.user, user_metadata: u.user_metadata }; store(session); }
+  return user();
+}
+
+// Häufige Tippfehler bei E-Mail-Anbietern → Vorschlag „Meintest du …?“
+const DOMAINS = ['gmail.com', 'googlemail.com', 'icloud.com', 'me.com', 'gmx.de', 'gmx.net', 'gmx.at', 'web.de', 't-online.de', 'outlook.com', 'outlook.de', 'hotmail.com', 'hotmail.de', 'yahoo.com', 'yahoo.de', 'live.de', 'freenet.de', 'posteo.de', 'mailbox.org', 'aon.at', 'bluewin.ch', 'proton.me', 'protonmail.com'];
+function distance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+/** z. B. „max@iclud.com“ → „max@icloud.com“; null, wenn die Adresse passt */
+export function emailSuggestion(email) {
+  const m = /^([^@\s]+)@([^@\s]+)$/.exec((email || '').trim().toLowerCase());
+  if (!m || DOMAINS.includes(m[2])) return null;
+  let best = null, bestD = 3;
+  for (const dom of DOMAINS) {
+    const dd = distance(m[2], dom);
+    if (dd < bestD) { bestD = dd; best = dom; }
+  }
+  return best && bestD <= 2 ? `${m[1]}@${best}` : null;
 }
 
 /** Neues Passwort für das angemeldete Konto */

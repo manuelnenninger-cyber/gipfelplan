@@ -780,3 +780,13 @@ test('Lawinen: Route durch steilen Nordhang', () => {
   assert.equal(flat.level, 0);
   assert.equal(checkRoute(coords, () => null, spec), null);
 });
+
+import { emailSuggestion } from '../src/api/auth.js';
+test('Konto: Tippfehler in der E-Mail erkennen', () => {
+  assert.equal(emailSuggestion('max@iclud.com'), 'max@icloud.com');
+  assert.equal(emailSuggestion('max@gmial.com'), 'max@gmail.com');
+  assert.equal(emailSuggestion('max@gmx.de'), null);
+  assert.equal(emailSuggestion('max@web.de'), null);
+  assert.equal(emailSuggestion('max@alpenverein-muenchen.de'), null);
+  assert.equal(emailSuggestion('kein-at-zeichen'), null);
+});

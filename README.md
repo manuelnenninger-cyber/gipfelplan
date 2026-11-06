@@ -165,9 +165,10 @@ Einrichten (einmalig): Auf vercel.com mit GitHub anmelden → „Add New… → 
 
 1. `supabase/schema.sql` im SQL-Editor ausführen (beim Projekt `gipfelplan` bereits geschehen).
 2. Authentication → URL Configuration: Site URL `https://gipfelplan.vercel.app`, Redirect URLs `https://gipfelplan.vercel.app/**` und `http://localhost:5173/**`. Fehlt das, landet der Link aus der Mail auf `localhost:3000` und die Anmeldung kommt nicht in der App an.
-3. Authentication → Sign In / Providers → Email: „Confirm email“ ausschalten, damit neue Konten sofort angemeldet sind (sonst kommt erst eine Bestätigungsmail; Vorlage dafür: `supabase/templates/bestaetigen.html`, Betreff `Gipfelplan: bitte E-Mail bestätigen`).
+3. Authentication → Emails → Templates → „Confirm sign up“: Betreff `Gipfelplan: bitte E-Mail bestätigen`, Inhalt `supabase/templates/bestaetigen.html`. Wer „Confirm email“ (Sign In / Providers → Email) ausschaltet, ist nach dem Registrieren sofort angemeldet und bekommt diese Mail nicht.
 4. Authentication → Emails → Templates → „Reset Password“: Betreff `Gipfelplan: neues Passwort festlegen`, Inhalt `supabase/templates/passwort.html` (Knopf und Code).
-5. Für echte Nutzer eigenen Mailversand eintragen (Authentication → SMTP, z. B. Resend) – der eingebaute schickt nur wenige Mails pro Stunde.
+5. Beide Vorlagen sprechen Nutzer mit Vornamen an (`{{ .Data.name }}`, beim Registrieren optional oder später unter „Meine Touren“ eingetragen) und nennen die Empfängeradresse.
+6. Für echte Nutzer eigenen Mailversand eintragen (Authentication → SMTP, z. B. Resend mit eigener Domain) – erst dann kommt die Mail von „Gipfelplan“ statt von Supabase, und der eingebaute Versand schafft nur wenige Mails pro Stunde.
 
 ### Webcams einrichten
 
